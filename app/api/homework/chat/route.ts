@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages, UIMessage } from "ai"
+import { streamText } from "ai"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -108,21 +108,38 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Normalize messages to proper UIMessage format for convertToModelMessages
-    const normalizedMessages: UIMessage[] = messages.map((msg: any) => ({
-      id: msg.id || String(Date.now()),
-      role: msg.role,
-      parts: msg.parts || [{ type: "text" as const, text: typeof msg.content === "string" ? msg.content : "" }],
-    }))
+    // Build simple model messages from the incoming data
+    const modelMessages = messages.map((msg: any) => {
+      // Extract text content from various message formats
+      let textContent = ""
+      if (msg.parts && Array.isArray(msg.parts)) {
+        textContent = msg.parts
+          .filter((p: any) => p.type === "text")
+          .map((p: any) => p.text)
+          .join("\n")
+      } else if (typeof msg.content === "string") {
+        textContent = msg.content
+      } else if (Array.isArray(msg.content)) {
+        textContent = msg.content
+          .filter((p: any) => p.type === "text")
+          .map((p: any) => p.text)
+          .join("\n")
+      }
+      
+      return {
+        role: msg.role as "user" | "assistant",
+        content: textContent || "",
+      }
+    }).filter((msg: any) => msg.content.trim() !== "")
 
-    console.log("[v0] Normalized messages count:", normalizedMessages.length)
+    console.log("[v0] Model messages count:", modelMessages.length)
 
     // Call AI with streaming - using Gemini 2.5 Flash via Vercel AI Gateway
     console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
       model: "google/gemini-2.5-flash",
       system: systemPrompt,
-      messages: convertToModelMessages(normalizedMessages),
+      messages: modelMessages,
       temperature: 0.7,
       maxOutputTokens: 2048,
     })
