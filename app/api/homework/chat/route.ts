@@ -1,6 +1,8 @@
 import { streamText } from "ai"
 import { createClient } from "@/lib/supabase/server"
 
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   try {
     console.log("[v0] Homework chat API called")
@@ -136,19 +138,21 @@ Guidelines:
           contentParts.push({ type: "text", text: textContent })
         }
         
-        // Add file parts
+        // Add file parts - convert base64 to Uint8Array for AI SDK
         for (const file of fileAttachments) {
+          console.log("[v0] Processing file attachment:", file.name, file.type, "data length:", file.data?.length)
+          const binaryData = Buffer.from(file.data, "base64")
+          
           if (file.type.startsWith("image/")) {
             contentParts.push({
               type: "image",
-              image: file.data,
+              image: binaryData,
             })
           } else {
-            // PDFs, text files, docs - send as file parts
             contentParts.push({
               type: "file",
-              data: file.data,
-              mimeType: file.type,
+              data: binaryData,
+              mediaType: file.type,
             })
           }
         }

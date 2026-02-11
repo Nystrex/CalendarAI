@@ -210,6 +210,10 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
       return file.size <= maxSize && (validTypes.includes(file.type) || file.name.match(/\.(pdf|txt|png|jpg|jpeg|webp|doc|docx)$/i))
     })
     setUploadedFiles(prev => [...prev, ...validFiles])
+    // Reset file input so the same file can be selected again
+    if (e.target) {
+      e.target.value = ""
+    }
   }
 
   const removeFile = (index: number) => {
