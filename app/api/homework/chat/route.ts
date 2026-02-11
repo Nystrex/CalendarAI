@@ -1,4 +1,5 @@
-import { streamText, convertToModelMessages } from "ai"
+import { streamText } from "ai"
+import { google } from "@ai-sdk/google"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -108,19 +109,14 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Convert messages to model format
-    console.log("[v0] Converting messages to model format")
-    const modelMessages = await convertToModelMessages(messages)
-    console.log("[v0] Converted messages:", modelMessages.length)
-
-    // Call AI with streaming - using GPT-4o for best quality
-    console.log("[v0] Calling AI with streamText")
+    // Call AI with streaming - using Gemini 2.5 Flash for multimodal support
+    console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
-      model: "openai/gpt-4o",
+      model: google("gemini-2.0-flash-exp"),
       system: systemPrompt,
-      messages: modelMessages,
+      messages: messages,
       temperature: 0.7,
-      maxTokens: 1500,
+      maxTokens: 2048,
     })
 
     console.log("[v0] Returning stream response")

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Send, Loader2, Plus, Calendar, MessageSquare, History } from "lucide-react"
+import { Send, Loader2, Plus, Calendar, MessageSquare, History, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 import ReactMarkdown from "react-markdown"
 import { createClient } from "@/lib/supabase/client"
@@ -29,7 +29,9 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [userAvatar, setUserAvatar] = useState<string | null>(null)
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { messages, status, setMessages, sendMessage } = useChat({
     transport: new DefaultChatTransport({
@@ -139,12 +141,69 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
     }
   }, [messages])
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files)
+      setAttachedFiles((prev) => [...prev, ...newFiles])
+    }
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!localInput.trim() || !userId) return
+    if ((!localInput.trim() && attachedFiles.length === 0) || !userId) return
 
-    await sendMessage({ text: localInput }, { body: { conversationId, userId } })
+    // Convert files to data URLs for multimodal input
+    const fileParts: Array<{ type: "text" | "image"; text?: string; image?: string }> = []
+    
+    if (localInput.trim()) {
+      fileParts.push({ type: "text", text: localInput })
+    }
+
+    for (const file of attachedFiles) {
+      if (file.type.startsWith("image/")) {
+        // Handle images
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(file)
+        })
+        fileParts.push({ type: "image", image: base64 })
+      } else if (file.type === "application/pdf") {
+        // Handle PDFs - convert to text
+        try {
+          const arrayBuffer = await file.arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+          const base64 = btoa(String.fromCharCode(...uint8Array))
+          fileParts.push({ 
+            type: "text", 
+            text: `[Analyzing PDF: ${file.name}]\n\nPlease analyze this PDF document.` 
+          })
+          // Include base64 for potential future processing
+          fileParts.push({ type: "image", image: `data:application/pdf;base64,${base64}` })
+        } catch (error) {
+          console.error("[v0] Error processing PDF:", error)
+          fileParts.push({ 
+            type: "text", 
+            text: `[Could not process PDF: ${file.name}]` 
+          })
+        }
+      } else {
+        // Handle text files
+        const text = await file.text()
+        fileParts.push({ 
+          type: "text", 
+          text: `[File: ${file.name}]\n\n${text}` 
+        })
+      }
+    }
+
+    await sendMessage({ parts: fileParts }, { body: { conversationId, userId } })
     setLocalInput("")
+    setAttachedFiles([])
   }
 
   const handleNewConversation = () => {
@@ -338,19 +397,71 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
 
         {/* Input Area */}
         <div className="border-t bg-card/50 backdrop-blur-sm px-6 py-4 flex-shrink-0">
+          {/* File Attachments Preview */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2 text-sm"
+                >
+                  {file.type.startsWith("image/") ? (
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="max-w-[150px] truncate">{file.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => handleRemoveFile(index)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <form onSubmit={handleFormSubmit} className="flex gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.txt,.doc,.docx"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isChatLoading || !userId}
+              className="shrink-0"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
             <Input
               value={localInput}
               onChange={(e) => setLocalInput(e.target.value)}
-              placeholder="Ask a question..."
+              placeholder="Ask a question or attach files..."
               disabled={isChatLoading || !userId}
               className="flex-1"
             />
-            <Button type="submit" disabled={isChatLoading || !localInput?.trim() || !userId} size="icon">
+            <Button 
+              type="submit" 
+              disabled={isChatLoading || (!localInput?.trim() && attachedFiles.length === 0) || !userId} 
+              size="icon"
+            >
               {isChatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground text-center mt-2">Always review AI responses carefully. AI may make mistakes.</p>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Attach images, PDFs, or documents. Always review AI responses carefully.
+          </p>
         </div>
       </div>
     </div>
