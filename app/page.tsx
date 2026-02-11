@@ -5,12 +5,17 @@ import { Calendar, Clock, Sparkles, Zap, CalendarCheck, Globe, ArrowRight } from
 import { createClient } from "@/lib/supabase/server"
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let isAuthenticated = false
+  
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    isAuthenticated = !!user
+  } catch {
+    // Auth check failed, show landing page
+  }
 
-  if (user) {
+  if (isAuthenticated) {
     redirect("/dashboard")
   }
 

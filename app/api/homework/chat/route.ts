@@ -108,12 +108,21 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
+    // Normalize messages to proper UIMessage format for convertToModelMessages
+    const normalizedMessages: UIMessage[] = messages.map((msg: any) => ({
+      id: msg.id || String(Date.now()),
+      role: msg.role,
+      parts: msg.parts || [{ type: "text" as const, text: typeof msg.content === "string" ? msg.content : "" }],
+    }))
+
+    console.log("[v0] Normalized messages count:", normalizedMessages.length)
+
     // Call AI with streaming - using Gemini 2.5 Flash via Vercel AI Gateway
     console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
       model: "google/gemini-2.5-flash",
       system: systemPrompt,
-      messages: convertToModelMessages(messages as UIMessage[]),
+      messages: convertToModelMessages(normalizedMessages),
       temperature: 0.7,
       maxOutputTokens: 2048,
     })
