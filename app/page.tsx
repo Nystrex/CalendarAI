@@ -1,8 +1,18 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, Sparkles, Zap, CalendarCheck, Globe, ArrowRight } from "lucide-react"
+import { createClient } from "@/lib/supabase/server"
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (user) {
+    redirect("/dashboard")
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
