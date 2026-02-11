@@ -1,43 +1,8 @@
 import Link from "next/link"
-import { redirect } from "next/navigation"
-import { headers } from "next/headers"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, Sparkles, Zap, CalendarCheck, Globe, ArrowRight } from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
 
-export default async function HomePage() {
-  console.log("[v0] HomePage rendering")
-  
-  // Skip auth check in v0 embedded preview to prevent black screen
-  let shouldCheckAuth = true
-  try {
-    const headersList = await headers()
-    const referer = headersList.get("referer") || ""
-    const userAgent = headersList.get("user-agent") || ""
-    console.log("[v0] Referer:", referer)
-    console.log("[v0] User-Agent:", userAgent)
-    
-    // Detect v0 preview environment
-    shouldCheckAuth = !referer.includes("v0.dev") && !referer.includes("vercel.app")
-    console.log("[v0] Should check auth:", shouldCheckAuth)
-  } catch (error) {
-    console.log("[v0] Header check failed:", error)
-  }
-  
-  if (shouldCheckAuth) {
-    try {
-      const supabase = await createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        redirect("/dashboard")
-      }
-    } catch (error) {
-      console.log("[v0] Auth check failed:", error)
-    }
-  }
+export default function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
