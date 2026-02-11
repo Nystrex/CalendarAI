@@ -156,41 +156,29 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
     e.preventDefault()
     if ((!localInput.trim() && attachedFiles.length === 0) || !userId) return
 
-    // Build message text with file contents inlined
-    let messageText = localInput.trim()
+    // Convert files to base64 for sending to the API
+    const fileAttachments: Array<{ name: string; type: string; data: string }> = []
     
     for (const file of attachedFiles) {
-      if (file.type.startsWith("image/")) {
-        // For images, convert to base64 and add as data URL reference
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.readAsDataURL(file)
-        })
-        messageText += `\n\n[IMAGE ATTACHED: ${file.name}]\n${base64}`
-      } else if (file.type === "application/pdf") {
-        // For PDFs, read as base64
-        try {
-          const arrayBuffer = await file.arrayBuffer()
-          const bytes = new Uint8Array(arrayBuffer)
-          let binary = ""
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i])
-          }
-          const base64 = btoa(binary)
-          messageText += `\n\n[PDF ATTACHED: ${file.name}]\ndata:application/pdf;base64,${base64}`
-        } catch (error) {
-          console.error("[v0] Error processing PDF:", error)
-          messageText += `\n\n[Could not process PDF: ${file.name}]`
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const result = reader.result as string
+          // Strip the data URL prefix to get raw base64
+          const base64Data = result.split(",")[1]
+          resolve(base64Data)
         }
-      } else {
-        // For text files, inline the content
-        const text = await file.text()
-        messageText += `\n\n[FILE: ${file.name}]\n${text}`
-      }
+        reader.readAsDataURL(file)
+      })
+      fileAttachments.push({ name: file.name, type: file.type, data: base64 })
     }
 
-    await sendMessage({ text: messageText }, { body: { conversationId, userId } })
+    const messageText = localInput.trim() || `Please analyze these files: ${attachedFiles.map(f => f.name).join(", ")}`
+
+    await sendMessage(
+      { text: messageText }, 
+      { body: { conversationId, userId, fileAttachments } }
+    )
     setLocalInput("")
     setAttachedFiles([])
   }

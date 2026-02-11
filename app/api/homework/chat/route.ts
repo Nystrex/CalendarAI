@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   try {
     console.log("[v0] Homework chat API called")
     const body = await req.json()
-    const { messages, conversationId, userId } = body
+    const { messages, conversationId, userId, fileAttachments } = body
 
     console.log("[v0] Received:", { messagesCount: messages?.length, conversationId, userId })
 
@@ -108,8 +108,8 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Build simple model messages from the incoming data
-    const modelMessages = messages.map((msg: any) => {
+    // Build model messages from incoming data
+    const modelMessages = messages.map((msg: any, index: number) => {
       // Extract text content from various message formats
       let textContent = ""
       if (msg.parts && Array.isArray(msg.parts)) {
@@ -125,12 +125,49 @@ Guidelines:
           .map((p: any) => p.text)
           .join("\n")
       }
+
+      // For the last user message, attach files as proper content parts
+      const isLastUserMessage = msg.role === "user" && index === messages.length - 1
+      if (isLastUserMessage && fileAttachments && fileAttachments.length > 0) {
+        const contentParts: any[] = []
+        
+        // Add text part
+        if (textContent) {
+          contentParts.push({ type: "text", text: textContent })
+        }
+        
+        // Add file parts
+        for (const file of fileAttachments) {
+          if (file.type.startsWith("image/")) {
+            contentParts.push({
+              type: "image",
+              image: file.data,
+            })
+          } else {
+            // PDFs, text files, docs - send as file parts
+            contentParts.push({
+              type: "file",
+              data: file.data,
+              mimeType: file.type,
+            })
+          }
+        }
+        
+        return {
+          role: msg.role as "user" | "assistant",
+          content: contentParts,
+        }
+      }
       
       return {
         role: msg.role as "user" | "assistant",
         content: textContent || "",
       }
-    }).filter((msg: any) => msg.content.trim() !== "")
+    }).filter((msg: any) => {
+      if (typeof msg.content === "string") return msg.content.trim() !== ""
+      if (Array.isArray(msg.content)) return msg.content.length > 0
+      return false
+    })
 
     console.log("[v0] Model messages count:", modelMessages.length)
 
@@ -155,19 +192,16 @@ Guidelines:
         if (userMessage.parts && Array.isArray(userMessage.parts)) {
           userContent = userMessage.parts
             .filter((p: any) => p.type === "text")
-            .map((p: any) => {
-              let text = p.text
-              text = text.split("\n\n[FILE:")[0]
-              return text
-            })
+            .map((p: any) => p.text)
             .join("")
         } else if (typeof userMessage.content === "string") {
-          userContent = userMessage.content.split("\n\n[FILE:")[0]
-        } else if (Array.isArray(userMessage.content)) {
           userContent = userMessage.content
-            .filter((p: any) => p.type === "text")
-            .map((p: any) => p.text.split("\n\n[FILE:")[0])
-            .join("")
+        }
+
+        // Add file names to saved content for reference
+        if (fileAttachments && fileAttachments.length > 0) {
+          const fileNames = fileAttachments.map((f: any) => f.name).join(", ")
+          userContent += `\n[Attached: ${fileNames}]`
         }
 
         if (userContent) {
@@ -177,7 +211,6 @@ Guidelines:
             role: "user",
             content: userContent,
           })
-          console.log("[v0] User message saved")
         }
       }
     }
