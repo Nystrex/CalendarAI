@@ -1,12 +1,13 @@
 import { streamText } from "ai"
-import { google } from "@ai-sdk/google"
 import { createClient } from "@/lib/supabase/server"
+
+export const maxDuration = 60
 
 export async function POST(req: Request) {
   try {
     console.log("[v0] Homework chat API called")
     const body = await req.json()
-    const { messages, conversationId, userId } = body
+    const { messages, conversationId, userId, fileAttachments } = body
 
     console.log("[v0] Received:", { messagesCount: messages?.length, conversationId, userId })
 
@@ -109,14 +110,79 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Call AI with streaming - using Gemini 1.5 Flash for multimodal support
-    console.log("[v0] Calling Gemini 1.5 Flash with streamText")
+    // Build model messages from incoming data
+    const modelMessages = messages.map((msg: any, index: number) => {
+      // Extract text content from various message formats
+      let textContent = ""
+      if (msg.parts && Array.isArray(msg.parts)) {
+        textContent = msg.parts
+          .filter((p: any) => p.type === "text")
+          .map((p: any) => p.text)
+          .join("\n")
+      } else if (typeof msg.content === "string") {
+        textContent = msg.content
+      } else if (Array.isArray(msg.content)) {
+        textContent = msg.content
+          .filter((p: any) => p.type === "text")
+          .map((p: any) => p.text)
+          .join("\n")
+      }
+
+      // For the last user message, attach files as proper content parts
+      const isLastUserMessage = msg.role === "user" && index === messages.length - 1
+      if (isLastUserMessage && fileAttachments && fileAttachments.length > 0) {
+        const contentParts: any[] = []
+        
+        // Add text part
+        if (textContent) {
+          contentParts.push({ type: "text", text: textContent })
+        }
+        
+        // Add file parts - convert base64 to Uint8Array for AI SDK
+        for (const file of fileAttachments) {
+          console.log("[v0] Processing file attachment:", file.name, file.type, "data length:", file.data?.length)
+          const binaryData = Buffer.from(file.data, "base64")
+          
+          if (file.type.startsWith("image/")) {
+            contentParts.push({
+              type: "image",
+              image: binaryData,
+            })
+          } else {
+            contentParts.push({
+              type: "file",
+              data: binaryData,
+              mediaType: file.type,
+            })
+          }
+        }
+        
+        return {
+          role: msg.role as "user" | "assistant",
+          content: contentParts,
+        }
+      }
+      
+      return {
+        role: msg.role as "user" | "assistant",
+        content: textContent || "",
+      }
+    }).filter((msg: any) => {
+      if (typeof msg.content === "string") return msg.content.trim() !== ""
+      if (Array.isArray(msg.content)) return msg.content.length > 0
+      return false
+    })
+
+    console.log("[v0] Model messages count:", modelMessages.length)
+
+    // Call AI with streaming - using Gemini 2.5 Flash via Vercel AI Gateway
+    console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
-      model: google("gemini-1.5-flash-latest"),
+      model: "google/gemini-2.5-flash",
       system: systemPrompt,
-      messages: messages,
+      messages: modelMessages,
       temperature: 0.7,
-      maxTokens: 2048,
+      maxOutputTokens: 2048,
     })
 
     console.log("[v0] Returning stream response")
@@ -130,19 +196,16 @@ Guidelines:
         if (userMessage.parts && Array.isArray(userMessage.parts)) {
           userContent = userMessage.parts
             .filter((p: any) => p.type === "text")
-            .map((p: any) => {
-              let text = p.text
-              text = text.split("\n\n[FILE:")[0]
-              return text
-            })
+            .map((p: any) => p.text)
             .join("")
         } else if (typeof userMessage.content === "string") {
-          userContent = userMessage.content.split("\n\n[FILE:")[0]
-        } else if (Array.isArray(userMessage.content)) {
           userContent = userMessage.content
-            .filter((p: any) => p.type === "text")
-            .map((p: any) => p.text.split("\n\n[FILE:")[0])
-            .join("")
+        }
+
+        // Add file names to saved content for reference
+        if (fileAttachments && fileAttachments.length > 0) {
+          const fileNames = fileAttachments.map((f: any) => f.name).join(", ")
+          userContent += `\n[Attached: ${fileNames}]`
         }
 
         if (userContent) {
@@ -152,7 +215,6 @@ Guidelines:
             role: "user",
             content: userContent,
           })
-          console.log("[v0] User message saved")
         }
       }
     }
