@@ -122,4 +122,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Hide v0 preview warning banner */
+  body > div[style*="position: fixed"][style*="z-index"] {
+    display: none !important;
+  }
 }
