@@ -108,15 +108,12 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Convert UI messages to model messages
-    const modelMessages = convertToModelMessages(messages as UIMessage[])
-
     // Call AI with streaming - using Gemini 2.5 Flash via Vercel AI Gateway
     console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
       model: "google/gemini-2.5-flash",
       system: systemPrompt,
-      prompt: modelMessages,
+      messages: convertToModelMessages(messages as UIMessage[]),
       temperature: 0.7,
       maxOutputTokens: 2048,
     })

@@ -339,6 +339,7 @@ export function OverviewDashboard({
               <div key={i} className="flex flex-col items-center gap-0.5 md:gap-1">
                 <span className="text-[10px] md:text-xs text-muted-foreground">{format(day.date, "EEE").slice(0, 2)}</span>
                 <div
+                  suppressHydrationWarning
                   className={`w-full aspect-square rounded-md md:rounded-lg flex items-center justify-center text-xs md:text-sm font-medium transition-colors border ${getHeatColor(
                     day.count,
                     workloadBalance.maxPerDay,
