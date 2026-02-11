@@ -109,10 +109,10 @@ Guidelines:
 - Be encouraging and supportive
 - If the topic is beyond typical homework (illegal, harmful), politely decline${calendarContext}`
 
-    // Call AI with streaming - using Gemini 2.5 Flash for multimodal support
-    console.log("[v0] Calling Gemini 2.5 Flash with streamText")
+    // Call AI with streaming - using Gemini 1.5 Flash for multimodal support
+    console.log("[v0] Calling Gemini 1.5 Flash with streamText")
     const result = streamText({
-      model: google("gemini-2.0-flash-exp"),
+      model: google("gemini-1.5-flash-latest"),
       system: systemPrompt,
       messages: messages,
       temperature: 0.7,
