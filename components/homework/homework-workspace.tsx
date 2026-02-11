@@ -74,15 +74,18 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
   const pomodoroIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [chatMessages, setChatMessages] = useState<any[]>([]); // Declare chatMessages variable
 
+  const [pendingFileAttachments, setPendingFileAttachments] = useState<Array<{ name: string; type: string; data: string }>>([])
+
   const { messages, status, setMessages, sendMessage } = useChat({
     id: conversationId,
     transport: new DefaultChatTransport({
       api: "/api/homework/chat",
-      prepareSendMessagesRequest: ({ messages }) => ({
+      prepareSendMessagesRequest: ({ messages, requestBodyExtra }) => ({
         body: {
           messages,
           conversationId,
           userId,
+          ...requestBodyExtra,
         },
       }),
     }),
@@ -160,72 +163,42 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
     }
   }, [isPomodoroRunning])
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!localInput.trim() && uploadedFiles.length === 0) return
     
-    // Process files and send with content
-    const processFiles = async () => {
-      const fileContents: { name: string; content: string; type: string }[] = []
-      const pdfFiles: string[] = []
-      
-      for (const file of uploadedFiles) {
-        try {
-          // Skip PDFs - they contain binary data that breaks database storage
-          if (file.type === 'application/pdf') {
-            pdfFiles.push(file.name)
-            continue
-          }
-          
+    // Convert all files to base64 for the API
+    const fileAttachments: Array<{ name: string; type: string; data: string }> = []
+    
+    for (const file of uploadedFiles) {
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
-          const content = await new Promise<string>((resolve, reject) => {
-            reader.onload = (e) => {
-              let result = e.target?.result as string
-              // Sanitize content to remove null bytes and invalid Unicode
-              result = result.replace(/\0/g, "").replace(/[\uFFFD]/g, "?")
-              resolve(result)
-            }
-            reader.onerror = reject
-            
-            if (file.type.startsWith('image/')) {
-              reader.readAsDataURL(file)
-            } else {
-              reader.readAsText(file)
-            }
-          })
-          
-          fileContents.push({
-            name: file.name,
-            content: content.slice(0, 5000), // Limit content size
-            type: file.type
-          })
-        } catch (error) {
-          console.error(`Error reading file ${file.name}:`, error)
-        }
-      }
-      
-      // Build message with file content
-      let messageText = localInput
-      
-      if (fileContents.length > 0 || pdfFiles.length > 0) {
-        const textFileInfo = fileContents.map(f => `\n\n[FILE: ${f.name}]\n${f.content}`).join("")
-        const pdfFileInfo = pdfFiles.length > 0 ? `\n\n[FILES ATTACHED - PDF (cannot be processed inline): ${pdfFiles.join(", ")}]` : ""
-        
-        if (!messageText) {
-          messageText = "Please analyze these files:"
-        }
-        messageText += textFileInfo + pdfFileInfo
-      }
-      
-      sendMessage({ text: messageText })
-      setLocalInput("")
-      setUploadedFiles([])
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+          reader.onloadend = () => {
+            const result = reader.result as string
+            const base64Data = result.split(",")[1]
+            resolve(base64Data)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        fileAttachments.push({ name: file.name, type: file.type, data: base64 })
+      } catch (error) {
+        console.error(`Error reading file ${file.name}:`, error)
       }
     }
-    
-    processFiles()
+
+    const messageText = localInput.trim() || `Please analyze these files: ${uploadedFiles.map(f => f.name).join(", ")}`
+
+    await sendMessage(
+      { text: messageText },
+      { body: { fileAttachments } }
+    )
+    setLocalInput("")
+    setUploadedFiles([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
