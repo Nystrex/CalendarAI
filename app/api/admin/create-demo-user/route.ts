@@ -14,10 +14,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Use admin client with service role key for admin operations
     const adminClient = createAdminClient()
 
-    // Create demo user with admin API
+    console.log("[v0] Creating demo user - checking if already exists...")
+
+    // First check if demo user already exists by listing users
+    const { data: existingUsers, error: listError } = await adminClient.auth.admin.listUsers()
+    
+    if (listError) {
+      console.log("[v0] Error listing users:", listError.message)
+    }
+
+    const existingDemo = existingUsers?.users?.find((u) => u.email === "demo@calendar.ai")
+
+    if (existingDemo) {
+      console.log("[v0] Demo user already exists, deleting first:", existingDemo.id)
+      // Delete existing profile first (foreign key)
+      await adminClient.from("profiles").delete().eq("id", existingDemo.id)
+      // Delete calendars and events for demo user
+      await adminClient.from("events").delete().eq("user_id", existingDemo.id)
+      await adminClient.from("calendars").delete().eq("user_id", existingDemo.id)
+      // Delete the auth user
+      await adminClient.auth.admin.deleteUser(existingDemo.id)
+      console.log("[v0] Old demo user deleted")
+    }
+
+    // Create fresh demo user
+    console.log("[v0] Creating new demo user...")
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: "demo@calendar.ai",
       password: "DemoAccount2024!",
@@ -29,23 +52,25 @@ export async function POST(request: Request) {
     })
 
     if (authError) {
-      console.error("Error creating demo auth user:", authError)
+      console.log("[v0] Error creating demo auth user:", authError.message)
       return NextResponse.json({ error: authError.message }, { status: 500 })
     }
 
-    // The profile should be auto-created by the trigger, but let's verify
-    const { data: profile, error: profileError } = await adminClient
+    console.log("[v0] Demo auth user created:", authData.user.id)
+
+    // Wait briefly for trigger to create profile
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Check if profile was auto-created by trigger
+    const { data: profile } = await adminClient
       .from("profiles")
-      .select("*")
+      .select("id")
       .eq("id", authData.user.id)
       .single()
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error("Error checking profile:", profileError)
-    }
-
     // If profile doesn't exist, create it manually
     if (!profile) {
+      console.log("[v0] Profile not auto-created, inserting manually...")
       const { error: insertError } = await adminClient
         .from("profiles")
         .insert({
@@ -65,18 +90,22 @@ export async function POST(request: Request) {
         })
 
       if (insertError) {
-        console.error("Error creating profile:", insertError)
+        console.log("[v0] Error creating profile:", insertError.message)
         return NextResponse.json({ error: insertError.message }, { status: 500 })
       }
+      console.log("[v0] Profile created manually")
+    } else {
+      console.log("[v0] Profile auto-created by trigger")
     }
 
+    console.log("[v0] Demo account ready!")
     return NextResponse.json({ 
       success: true, 
       userId: authData.user.id,
       email: authData.user.email 
     })
   } catch (error) {
-    console.error("Error creating demo user:", error)
+    console.log("[v0] Unexpected error creating demo user:", error)
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : "Failed to create demo user" 
     }, { status: 500 })
