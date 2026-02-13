@@ -1,3 +1,4 @@
+// Handles the OAuth callback from Google
 import { createClient } from "@/lib/supabase/server"
 import { exchangeCodeForTokens, isGoogleOAuthConfigured } from "@/lib/google/oauth"
 import { GoogleCalendarAPI } from "@/lib/google/calendar-api"
