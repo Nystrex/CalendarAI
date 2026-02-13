@@ -56,13 +56,18 @@ export default function SignUpPage() {
         password: demoPassword,
       })
 
-      if (loginResult?.error) throw loginResult.error
+      if (loginResult?.error) {
+        // Demo account doesn't exist yet
+        setError("Demo account is not set up yet. Please create a free account to get started!")
+        setIsLoading(false)
+        return
+      }
       
       localStorage.setItem("isDemoSession", "true")
       router.push("/dashboard")
     } catch (error: unknown) {
       console.error("Demo login error:", error)
-      setError("Demo account not available. Please try creating an account instead.")
+      setError("Demo account is currently unavailable. Please create a free account to get started!")
     } finally {
       setIsLoading(false)
     }
