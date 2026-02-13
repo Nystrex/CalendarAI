@@ -32,12 +32,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { key, value } = body
+  let { key, value } = body
 
   if (!key) {
     return NextResponse.json({ error: "Key is required" }, { status: 400 })
   }
 
+  // Store value directly - the public API will handle type conversion on read
+  // This allows the database to store raw values and convert them on retrieval
   const { error } = await supabase
     .from("app_settings")
     .upsert({ key, value, updated_at: new Date().toISOString() })
