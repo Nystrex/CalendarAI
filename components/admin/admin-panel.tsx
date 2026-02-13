@@ -173,14 +173,11 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
   const authenticateWithPassword = async (pwd: string) => {
     setIsLoading(true)
     try {
-      console.log("[v0] Admin auth - fetching stats")
       const response = await fetch("/api/admin/stats", {
         headers: {
           "x-admin-password": pwd,
         },
       })
-
-      console.log("[v0] Admin auth - response status:", response.status)
 
       if (response.status === 401) {
         toast.error("Invalid password")
@@ -191,24 +188,16 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       }
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: "Unknown error" }))
-        console.log("[v0] Admin auth error:", errData)
-        toast.error(errData.error || `Server error: ${response.status}`)
-        sessionStorage.removeItem("admin_password")
-        setIsAuthenticated(false)
-        setIsLoading(false)
-        return
+        throw new Error("Failed to fetch admin data")
       }
 
       const data = await response.json()
-      console.log("[v0] Admin auth - success, users:", data.users?.length)
       setStats(data)
       setIsAuthenticated(true)
       sessionStorage.setItem("admin_password", pwd)
       toast.success("Admin access granted")
     } catch (error) {
-      console.log("[v0] Admin auth - exception:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to authenticate")
+      toast.error("Failed to authenticate")
       sessionStorage.removeItem("admin_password")
     } finally {
       setIsLoading(false)
