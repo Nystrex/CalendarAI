@@ -8,7 +8,15 @@ export async function GET() {
     .from("app_settings")
     .select("key, value")
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // If table doesn't exist yet, return empty settings instead of erroring
+  if (error) {
+    if (error.code === '42P01' || error.message.includes('does not exist')) {
+      console.log('[Settings] app_settings table does not exist yet, returning empty settings')
+      return NextResponse.json({})
+    }
+    console.error('[Settings] Error fetching settings:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   const settings: Record<string, unknown> = {}
   for (const row of data || []) {

@@ -39,6 +39,8 @@ export function useAppSettings() {
   const { data, error, isLoading, mutate } = useSWR<AppSettings>("/api/settings/public", fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
+    shouldRetryOnError: false, // Don't retry on errors (like missing table)
+    errorRetryCount: 0, // No retries
   })
 
   return {
