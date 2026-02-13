@@ -209,7 +209,7 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
         toast.info("No events found in the provided content")
       }
     } catch (error) {
-      console.error("[v0] Extraction error:", error)
+      console.error("Extraction error:", error)
       toast.error(error instanceof Error ? error.message : "Failed to extract events")
     } finally {
       setIsExtracting(false)
@@ -311,7 +311,7 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
       onEventsSaved()
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error saving events:", error)
+      console.error("Error saving events:", error)
       toast.error(error instanceof Error ? error.message : "Failed to save events")
     } finally {
       setIsSaving(false)

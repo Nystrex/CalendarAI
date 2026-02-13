@@ -90,7 +90,7 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
       }),
     }),
     onError: (error) => {
-      console.error("[v0] Chat error:", error)
+      console.error("Chat error:", error)
     },
   })
 
@@ -165,10 +165,7 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] Send message triggered, uploadedFiles:", uploadedFiles.length, "localInput:", localInput.trim())
-    console.log("[v0] Chat status:", status)
     if (!localInput.trim() && uploadedFiles.length === 0) {
-      console.log("[v0] Blocked: no input and no files")
       return
     }
     
@@ -177,13 +174,11 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
     
     for (const file of uploadedFiles) {
       try {
-        console.log("[v0] Processing file:", file.name, file.type)
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onloadend = () => {
             const result = reader.result as string
             const base64Data = result.split(",")[1]
-            console.log("[v0] File converted to base64, length:", base64Data.length)
             resolve(base64Data)
           }
           reader.onerror = reject
@@ -191,18 +186,16 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
         })
         fileAttachments.push({ name: file.name, type: file.type, data: base64 })
       } catch (error) {
-        console.error(`[v0] Error reading file ${file.name}:`, error)
+        console.error(`Error reading file ${file.name}:`, error)
       }
     }
 
     const messageText = localInput.trim() || `Please analyze these files: ${uploadedFiles.map(f => f.name).join(", ")}`
-    console.log("[v0] Sending message with", fileAttachments.length, "file attachments")
 
     await sendMessage(
       { text: messageText },
       { body: { fileAttachments } }
     )
-    console.log("[v0] Message sent, clearing state")
     setLocalInput("")
     setUploadedFiles([])
     if (fileInputRef.current) {
@@ -211,7 +204,6 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("[v0] File select triggered, files:", e.target.files?.length)
     const files = Array.from(e.target.files || [])
     const validFiles = files.filter(file => {
       // Limit file size to 10MB and accept common document/image types
@@ -219,10 +211,8 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
       const validTypes = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg', 'image/webp', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
       return file.size <= maxSize && (validTypes.includes(file.type) || file.name.match(/\.(pdf|txt|png|jpg|jpeg|webp|doc|docx)$/i))
     })
-    console.log("[v0] Valid files:", validFiles.length, validFiles.map(f => f.name))
     setUploadedFiles(prev => {
       const newFiles = [...prev, ...validFiles]
-      console.log("[v0] Updated uploaded files:", newFiles.length)
       return newFiles
     })
   }
@@ -548,7 +538,6 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
                   type="submit" 
                   disabled={isChatLoading || (!localInput.trim() && uploadedFiles.length === 0)} 
                   size="icon"
-                  onClick={() => console.log("[v0] Send button clicked, disabled:", isChatLoading || (!localInput.trim() && uploadedFiles.length === 0), "uploadedFiles:", uploadedFiles.length)}
                 >
                   {isChatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>

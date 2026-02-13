@@ -107,12 +107,9 @@ export function MarkAsDoneDialog({
           completedCalendarId = existingCalendar.id
           localStorage.setItem(MARK_DONE_CALENDAR_KEY, existingCalendar.id)
         } else {
-          console.log("[v0] Creating calendar:", newCalendarName.trim(), "for mark-as-done")
-          
           // Create calendar on Google first
           let providerCalendarId = null
           try {
-            console.log("[v0] Attempting to create Google Calendar...")
             const googleRes = await fetch("/api/google/calendars/create", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -123,13 +120,10 @@ export function MarkAsDoneDialog({
             })
 
             const googleData = await googleRes.json()
-            console.log("[v0] Google Calendar creation response:", googleData)
 
             if (googleRes.ok && googleData.success && googleData.calendarId) {
               providerCalendarId = googleData.calendarId
-              console.log("[v0] Successfully created Google Calendar:", providerCalendarId)
             } else {
-              console.error("[v0] Failed to create Google Calendar:", googleData.error)
               if (googleData.needsReauth) {
                 toast.error("Google authorization expired. Calendar will be created locally.")
               } else {
@@ -137,12 +131,10 @@ export function MarkAsDoneDialog({
               }
             }
           } catch (error) {
-            console.error("[v0] Error creating Google Calendar:", error)
             toast.error("Failed to connect to Google. Creating local calendar instead.")
           }
 
           // Create calendar locally
-          console.log("[v0] Creating local calendar entry...")
           const { data: newCalendar, error: calendarError } = await supabase
             .from("calendars")
             .insert({
@@ -157,11 +149,8 @@ export function MarkAsDoneDialog({
             .single()
 
           if (calendarError) {
-            console.error("[v0] Error creating local calendar:", calendarError)
             throw calendarError
           }
-          
-          console.log("[v0] Calendar created successfully:", newCalendar)
           completedCalendarId = newCalendar.id
           localStorage.setItem(MARK_DONE_CALENDAR_KEY, newCalendar.id)
           localStorage.setItem(MARK_DONE_CALENDAR_NAME_KEY, newCalendarName.trim())

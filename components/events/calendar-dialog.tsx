@@ -51,25 +51,19 @@ export function CalendarDialog({ open, onOpenChange, onCalendarCreated }: Calend
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      console.log("[v0] Creating calendar for user:", user.id, "Name:", name, "Auto-syncing to Google")
-
       // Automatically create the calendar in Google Calendar
       let googleCalendarId = null
       try {
-        console.log("[v0] Attempting to create Google Calendar...")
         const response = await fetch("/api/google/calendars/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, color: selectedColor }),
         })
         const result = await response.json()
-        console.log("[v0] Google Calendar creation response:", result)
         
         if (result.success && result.calendarId) {
           googleCalendarId = result.calendarId
-          console.log("[v0] Successfully created Google Calendar:", googleCalendarId)
         } else {
-          console.error("[v0] Failed to create Google Calendar:", result.error)
           if (result.needsReauth) {
             toast.error("Google authorization expired. Calendar will be created locally.")
           } else {
@@ -77,7 +71,7 @@ export function CalendarDialog({ open, onOpenChange, onCalendarCreated }: Calend
           }
         }
       } catch (error) {
-        console.error("[v0] Error creating Google Calendar:", error)
+        console.error("Error creating Google Calendar:", error)
         toast.error("Failed to connect to Google. Creating local calendar instead.")
       }
 
@@ -91,11 +85,9 @@ export function CalendarDialog({ open, onOpenChange, onCalendarCreated }: Calend
       }).select()
 
       if (error) {
-        console.error("[v0] Error creating calendar:", error)
+        console.error("Error creating calendar:", error)
         throw error
       }
-
-      console.log("[v0] Calendar created successfully:", data)
 
       const newCalendarId = data?.[0]?.id
       if (!newCalendarId) {
@@ -108,7 +100,7 @@ export function CalendarDialog({ open, onOpenChange, onCalendarCreated }: Calend
       setName("")
       setSelectedColor(CALENDAR_COLORS[0])
     } catch (error) {
-      console.error("[v0] Error creating calendar:", error)
+      console.error("Error creating calendar:", error)
       toast.error("Failed to create calendar")
     } finally {
       setIsLoading(false)

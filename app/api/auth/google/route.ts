@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ url: authUrl })
   } catch (error) {
-    console.error("[v0] Google OAuth init error:", error)
+    console.error("Google OAuth init error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to initialize OAuth" },
       { status: 500 },

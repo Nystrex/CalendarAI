@@ -48,7 +48,7 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
       },
     }),
     onError: (error) => {
-      console.error("[v0] Chat error:", error)
+      console.error("Chat error:", error)
     },
   })
 
@@ -71,7 +71,6 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
   useEffect(() => {
     const loadConversations = async () => {
       if (!userId) return
-      console.log("[v0] Loading conversations for user:", userId)
       const supabase = createClient()
       const { data, error } = await supabase
         .from("homework_chat_history")
@@ -80,8 +79,6 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
         .eq("role", "user")
         .order("created_at", { ascending: false })
         .limit(50)
-
-      console.log("[v0] Conversations data:", data, "error:", error)
 
       if (data) {
         // Group by conversation and get first message as title
@@ -95,7 +92,6 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
             })
           }
         })
-        console.log("[v0] Loaded conversations:", Array.from(convMap.values()))
         setConversations(Array.from(convMap.values()))
       }
     }
@@ -107,7 +103,6 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
     const loadChatHistory = async () => {
       if (!conversationId || !userId) return
 
-      console.log("[v0] Loading messages for conversation:", conversationId)
       const supabase = createClient()
       const { data: history, error } = await supabase
         .from("homework_chat_history")
@@ -116,18 +111,14 @@ export function HomeworkChat({ userId }: HomeworkChatProps) {
         .eq("user_id", userId)
         .order("created_at", { ascending: true })
 
-      console.log("[v0] Chat history:", history, "error:", error)
-
       if (history && history.length > 0) {
         const formattedMessages = history.map((msg) => ({
           id: `${msg.id}`,
           role: msg.role as "user" | "assistant",
           parts: [{ type: "text" as const, text: msg.content }],
         }))
-        console.log("[v0] Setting messages:", formattedMessages)
         setMessages(formattedMessages)
       } else {
-        console.log("[v0] No history found, clearing messages")
         setMessages([])
       }
     }

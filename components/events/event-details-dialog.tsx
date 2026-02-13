@@ -100,7 +100,7 @@ export function EventDetailsDialog({
       onDelete() // Trigger refresh
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error moving event:", error)
+      console.error("Error moving event:", error)
       toast.error("Failed to move event")
     } finally {
       setIsMoving(false)
@@ -146,7 +146,7 @@ export function EventDetailsDialog({
       onDelete()
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error deleting event:", error)
+      console.error("Error deleting event:", error)
       toast.error("Failed to delete event")
     } finally {
       setIsDeleting(false)

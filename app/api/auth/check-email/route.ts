@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const { data: users, error } = await supabase.auth.admin.listUsers()
 
     if (error) {
-      console.error("[v0] Error listing users:", error)
+      console.error("Error listing users:", error)
       return NextResponse.json({ exists: false })
     }
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ exists: userExists })
   } catch (error) {
-    console.error("[v0] Error checking email:", error)
+    console.error("Error checking email:", error)
     return NextResponse.json({ exists: false })
   }
 }

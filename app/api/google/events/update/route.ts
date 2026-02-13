@@ -233,7 +233,7 @@ export async function POST(request: Request) {
       }
     } catch (googleError: any) {
       // The event is already saved locally, just log the sync failure
-      console.error("[v0] Google API error (event saved locally):", googleError.message || googleError)
+      console.error("Google API error (event saved locally):", googleError.message || googleError)
 
       if (googleError.message?.includes("401") || googleError.message?.includes("Unauthorized")) {
         return NextResponse.json(
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, googleEventId })
   } catch (error) {
-    console.error("[v0] Error in update route:", error)
+    console.error("Error in update route:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Update failed",

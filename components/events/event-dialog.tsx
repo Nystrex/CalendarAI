@@ -162,7 +162,7 @@ export function EventDialog({
         setConflicts(conflictInfo.conflictingEvents)
       }
     } catch (error) {
-      console.error("[v0] Error checking conflicts:", error)
+      console.error("Error checking conflicts:", error)
     }
   }
 
@@ -314,26 +314,19 @@ export function EventDialog({
           changes: { before: event, after: eventData },
         })
 
-        console.log("[v0] Event updated:", event.id, "Calendar:", formData.calendar_id)
-        
         try {
-          console.log("[v0] Syncing updated event to Google Calendar...")
           const response = await fetch("/api/google/events/update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId: event.id }),
           })
           const result = await response.json()
-          console.log("[v0] Google sync response:", result)
           
-          if (result.warning) {
-            console.warn("[v0] Google sync warning:", result.warning)
-          }
           if (result.error) {
-            console.error("[v0] Google sync error:", result.error)
+            console.error("Google sync error:", result.error)
           }
         } catch (error) {
-          console.error("[v0] Failed to sync update to Google:", error)
+          console.error("Failed to sync update to Google:", error)
         }
 
         toast.success("Event updated successfully")
@@ -342,29 +335,19 @@ export function EventDialog({
         if (error) throw error
         eventId = newEvent.id
 
-        console.log("[v0] New event created:", newEvent.id, "Calendar:", formData.calendar_id)
-        
         try {
-          console.log("[v0] Syncing new event to Google Calendar...")
           const response = await fetch("/api/google/events/update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId: newEvent.id }),
           })
           const result = await response.json()
-          console.log("[v0] Google sync response:", result)
           
-          if (result.warning) {
-            console.warn("[v0] Google sync warning:", result.warning)
-          }
           if (result.error) {
-            console.error("[v0] Google sync error:", result.error)
-          }
-          if (result.success && result.googleEventId) {
-            console.log("[v0] Successfully synced to Google, event ID:", result.googleEventId)
+            console.error("Google sync error:", result.error)
           }
         } catch (error) {
-          console.error("[v0] Failed to sync to Google:", error)
+          console.error("Failed to sync to Google:", error)
         }
 
         toast.success("Event created successfully")
@@ -373,7 +356,7 @@ export function EventDialog({
       onEventSaved()
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error saving event:", error)
+      console.error("Error saving event:", error)
       toast.error(error instanceof Error ? error.message : "Failed to save event")
     } finally {
       setIsLoading(false)

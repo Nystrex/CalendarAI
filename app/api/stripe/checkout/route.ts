@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
         await stripe.customers.retrieve(customerId)
       } catch (error: any) {
         // Customer doesn't exist (wrong mode or account), create new one
-        console.log("[v0] Customer not found, creating new:", error.message)
         customerId = null
       }
     }

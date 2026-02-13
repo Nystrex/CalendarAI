@@ -133,7 +133,7 @@ export async function POST() {
           syncedCount++
         }
       } catch (error) {
-        console.error(`[v0] Error syncing calendar ${calendar.name}:`, error)
+        console.error(`Error syncing calendar ${calendar.name}:`, error)
         // Continue with other calendars
       }
     }
@@ -145,7 +145,7 @@ export async function POST() {
 
     return NextResponse.json({ calendars: syncedCalendars, events: syncedCount })
   } catch (error) {
-    console.error("[v0] Auto-sync error:", error)
+    console.error("Auto-sync error:", error)
     return NextResponse.json({ error: error instanceof Error ? error.message : "Sync failed" }, { status: 500 })
   }
 }
