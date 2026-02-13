@@ -188,9 +188,7 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       }
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}))
-        console.log("[v0] Admin auth failed - status:", response.status, "error:", errData)
-        throw new Error(errData.error || `Server error: ${response.status}`)
+        throw new Error("Failed to fetch admin data")
       }
 
       const data = await response.json()
@@ -199,8 +197,7 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       sessionStorage.setItem("admin_password", pwd)
       toast.success("Admin access granted")
     } catch (error) {
-      console.log("[v0] Admin auth error:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to authenticate")
+      toast.error("Failed to authenticate")
       sessionStorage.removeItem("admin_password")
     } finally {
       setIsLoading(false)
@@ -1020,47 +1017,6 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
                         Loading server statistics...
                       </div>
                     )}
-                  </div>
-                </Card>
-
-                {/* Demo Account Management */}
-                <Card className="p-6 border-blue-500/20">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-blue-500">
-                      <Users className="h-5 w-5" />
-                      <h2 className="text-xl font-semibold">Demo Account</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Create or reset the demo account that users can use to test CalendarAI without signing up.
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        variant="outline"
-                        className="border-blue-500/50 text-blue-500 hover:bg-blue-500/10 bg-transparent"
-                        onClick={async () => {
-                          try {
-                            const response = await fetch("/api/admin/create-demo-user", {
-                              method: "POST",
-                            })
-                            const data = await response.json()
-                            if (data.success) {
-                              toast.success("Demo account created successfully!")
-                            } else {
-                              toast.error(data.error || "Failed to create demo account")
-                            }
-                          } catch (error) {
-                            toast.error("Failed to create demo account")
-                          }
-                        }}
-                      >
-                        <Users className="mr-2 h-4 w-4" />
-                        Create Demo Account
-                      </Button>
-                      <div className="text-xs text-muted-foreground p-3 bg-muted rounded-md">
-                        <p><strong>Email:</strong> demo@calendar.ai</p>
-                        <p><strong>Password:</strong> DemoAccount2024!</p>
-                      </div>
-                    </div>
                   </div>
                 </Card>
 

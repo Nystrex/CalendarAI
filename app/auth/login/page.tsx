@@ -71,7 +71,7 @@ export default function LoginPage() {
       if (loginResult?.error) throw loginResult.error
       router.push("/dashboard")
     } catch (error: unknown) {
-      console.error("Login error:", error)
+      console.error("[CalendarAI] Login error:", error)
       setError(error instanceof Error ? error.message : "An error occurred during login. Please try again.")
     } finally {
       setIsLoading(false)
