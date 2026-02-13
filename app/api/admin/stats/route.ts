@@ -5,8 +5,10 @@ import { type NextRequest, NextResponse } from "next/server"
 const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
 
 export async function GET(request: NextRequest) {
+  console.log("[v0] Admin stats route hit")
   try {
     const supabase = await createClient()
+    console.log("[v0] Admin stats - supabase client created")
 
     const {
       data: { user },
