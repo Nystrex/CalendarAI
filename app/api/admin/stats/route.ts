@@ -33,20 +33,52 @@ export async function GET(request: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false })
 
-    console.log("[v0] Profiles fetched:", profiles?.length, "Error:", profilesError?.message)
+    console.log("[v0] Profiles response:", { count: profiles?.length, hasError: !!profilesError })
     if (profilesError) {
-      console.error("[v0] Error fetching profiles:", profilesError)
-      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
+      console.error("[v0] Profiles error details:", {
+        message: profilesError.message,
+        code: profilesError.code,
+        details: profilesError.details
+      })
+      return NextResponse.json({ error: `Failed to fetch users: ${profilesError.message}` }, { status: 500 })
     }
 
+    if (!profiles || profiles.length === 0) {
+      console.log("[v0] No profiles found, but query succeeded")
+      // Return empty stats instead of error
+      return NextResponse.json({
+        total_users: 0,
+        total_calendars: 0,
+        total_events: 0,
+        google_connections: 0,
+        users: [],
+        activity: {
+          events_today: 0,
+          events_this_week: 0,
+          events_this_month: 0,
+          active_users_today: 0,
+          active_users_this_week: 0,
+          new_users_this_week: 0,
+          most_active_user: null,
+          busiest_day: null,
+        },
+        recent_audit_logs: [],
+      })
+    }
+
+    console.log("[v0] Fetching calendars...")
     const { count: totalCalendars } = await supabase.from("calendars").select("*", { count: "exact", head: true })
-
-    const { count: totalEvents } = await supabase.from("events").select("*", { count: "exact", head: true })
-
     const { data: calendarCounts } = await supabase.from("calendars").select("user_id")
 
+    console.log("[v0] Fetching calendars...")
+    const { count: totalCalendars } = await supabase.from("calendars").select("*", { count: "exact", head: true })
+    const { data: calendarCounts } = await supabase.from("calendars").select("user_id")
+
+    console.log("[v0] Fetching events...")
+    const { count: totalEvents } = await supabase.from("events").select("*", { count: "exact", head: true })
     const { data: eventCounts } = await supabase.from("events").select("user_id")
 
+    console.log("[v0] Fetching oauth connections...")
     const { data: oauthConnections } = await supabase
       .from("oauth_connections")
       .select("user_id, provider, is_active")
