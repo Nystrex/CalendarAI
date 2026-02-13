@@ -4,30 +4,38 @@ import { type NextRequest, NextResponse } from "next/server"
 const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
 
 export async function GET(request: NextRequest) {
+  console.log("[v0] Admin stats GET called")
   try {
     const supabase = await createClient()
+    console.log("[v0] Supabase client created")
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log("[v0] User:", user?.email, "Admin:", ADMIN_EMAIL)
     if (!user || user.email !== ADMIN_EMAIL) {
+      console.log("[v0] Unauthorized - wrong user")
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     const adminPassword = request.headers.get("x-admin-password")
+    console.log("[v0] Password check:", !!adminPassword, "Env:", !!process.env.ADMIN_PASSWORD)
     if (adminPassword !== process.env.ADMIN_PASSWORD) {
+      console.log("[v0] Invalid password")
       return NextResponse.json({ error: "Invalid password" }, { status: 401 })
     }
 
+    console.log("[v0] Auth passed, fetching profiles...")
     // Use regular client to fetch all data from database
     const { data: profiles, error: profilesError} = await supabase
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false })
 
+    console.log("[v0] Profiles fetched:", profiles?.length, "Error:", profilesError?.message)
     if (profilesError) {
-      console.error("[CalendarAI] Error fetching profiles:", profilesError)
+      console.error("[v0] Error fetching profiles:", profilesError)
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
     }
 
