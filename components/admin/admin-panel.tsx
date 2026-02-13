@@ -188,7 +188,9 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       }
 
       if (!response.ok) {
-        throw new Error("Failed to fetch admin data")
+        const errData = await response.json().catch(() => ({}))
+        console.log("[v0] Admin auth failed - status:", response.status, "error:", errData)
+        throw new Error(errData.error || `Server error: ${response.status}`)
       }
 
       const data = await response.json()
@@ -197,7 +199,8 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       sessionStorage.setItem("admin_password", pwd)
       toast.success("Admin access granted")
     } catch (error) {
-      toast.error("Failed to authenticate")
+      console.log("[v0] Admin auth error:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to authenticate")
       sessionStorage.removeItem("admin_password")
     } finally {
       setIsLoading(false)
