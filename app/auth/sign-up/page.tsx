@@ -42,6 +42,32 @@ export default function SignUpPage() {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
   const router = useRouter()
 
+  const handleDemoLogin = async () => {
+    const supabase = createClient()
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const demoEmail = "demo@calendar.ai"
+      const demoPassword = "DemoAccount2024!"
+
+      const loginResult = await supabase.auth.signInWithPassword({
+        email: demoEmail,
+        password: demoPassword,
+      })
+
+      if (loginResult?.error) throw loginResult.error
+      
+      localStorage.setItem("isDemoSession", "true")
+      router.push("/dashboard")
+    } catch (error: unknown) {
+      console.error("Demo login error:", error)
+      setError("Demo account not available. Please try creating an account instead.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const isLatin1 = (str: string): boolean => {
     // Check if string contains only Latin1 characters (0-255)
     for (let i = 0; i < str.length; i++) {
@@ -406,6 +432,23 @@ export default function SignUpPage() {
                   {error && <p className="text-sm text-destructive">{error}</p>}
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Sign up"}
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-muted-foreground/20" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or try demo</span>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={handleDemoLogin}
+                    disabled={isLoading}
+                  >
+                    Try Demo Account
                   </Button>
                 </div>
                 <div className="mt-4 text-center text-sm">
