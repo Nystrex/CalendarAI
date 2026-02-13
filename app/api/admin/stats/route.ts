@@ -12,11 +12,13 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log("[v0] Admin stats - user:", user?.email, "expected:", ADMIN_EMAIL)
     if (!user || user.email !== ADMIN_EMAIL) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
     const adminPassword = request.headers.get("x-admin-password")
+    console.log("[v0] Admin stats - password match:", adminPassword === process.env.ADMIN_PASSWORD, "env set:", !!process.env.ADMIN_PASSWORD)
     if (adminPassword !== process.env.ADMIN_PASSWORD) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 })
     }
