@@ -28,9 +28,34 @@ export default function LoginPage() {
     return true
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleDemoLogin = async () => {
     const supabase = createClient()
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Use demo account credentials
+      const demoEmail = "demo@calendar.ai"
+      const demoPassword = "DemoAccount2024!"
+
+      const loginResult = await supabase.auth.signInWithPassword({
+        email: demoEmail,
+        password: demoPassword,
+      })
+
+      if (loginResult?.error) throw loginResult.error
+      
+      // Mark as demo session in localStorage
+      localStorage.setItem("isDemoSession", "true")
+      
+      router.push("/dashboard")
+    } catch (error: unknown) {
+      console.error("Demo login error:", error)
+      setError("Demo account not available. Please contact support.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
     setIsLoading(true)
     setError(null)
 
@@ -123,6 +148,23 @@ export default function LoginPage() {
                   {error && <p className="text-sm text-destructive">{error}</p>}
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign in"}
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-muted-foreground/20" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or try demo</span>
+                    </div>
+                  </div>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={handleDemoLogin}
+                    disabled={isLoading}
+                  >
+                    Try Demo Account
                   </Button>
                 </div>
                 <div className="mt-4 text-center text-sm">

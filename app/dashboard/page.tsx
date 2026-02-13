@@ -2,7 +2,9 @@
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import Link from "next/link"
 import { useCalendar } from "@/lib/hooks/use-calendar"
+import { useDemoMode } from "@/lib/hooks/use-demo-mode"
 import { CalendarHeader } from "@/components/calendar/calendar-header"
 import { MonthView } from "@/components/calendar/month-view"
 import { WeekView } from "@/components/calendar/week-view"
@@ -79,6 +81,7 @@ type ViewType = "day" | "week" | "month" | "year"
 export default function DashboardPage() {
   const { currentDate, view, dateRange, goToNext, goToPrev, goToToday, changeView: originalChangeView, setCurrentDate } = useCalendar()
   const { settings: appSettings } = useAppSettings()
+  const { isDemoMode } = useDemoMode()
   const [allEvents, setAllEvents] = useState<EventType[]>([])
   const [calendars, setCalendars] = useState<CalendarType[]>([])
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([])
@@ -576,6 +579,13 @@ export default function DashboardPage() {
   const renderSettingsView = () => {
     return (
       <div className="mx-auto max-w-4xl p-6">
+        {isDemoMode && (
+          <div className="mb-8 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              <span className="font-semibold">Demo Mode:</span> You&apos;re testing CalendarAI with a shared demo account. Calendars created here are temporary and for demonstration only. <Link href="/auth/sign-up" className="underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-200">Create a personal account</Link> to save your data permanently.
+            </p>
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your calendar integrations and preferences</p>
@@ -588,7 +598,19 @@ export default function DashboardPage() {
               <Crown className="h-5 w-5 text-amber-500" />
               Subscription
             </h2>
-            <SubscriptionSettings />
+            {isDemoMode ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      You&apos;re using the demo account. Create a personal account to access premium features like Google Calendar sync and advanced scheduling.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <SubscriptionSettings />
+            )}
           </section>
 
           {/* Profile */}
@@ -723,8 +745,15 @@ export default function DashboardPage() {
               <Link2 className="h-5 w-5" />
               Integrations
             </h2>
-            {appSettings?.feature_google_calendar !== false && (
+            {!isDemoMode && appSettings?.feature_google_calendar !== false && (
               <GoogleCalendarConnect isConnected={isGoogleConnected} onConnectionChange={checkGoogleConnection} />
+            )}
+            {isDemoMode && (
+              <div className="p-4 bg-muted rounded-lg border border-muted-foreground/20">
+                <p className="text-sm text-muted-foreground">
+                  Google Calendar sync is not available in demo mode. Create an account to enable integrations.
+                </p>
+              </div>
             )}
           </section>
 

@@ -1,0 +1,3 @@
+INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, confirmation_token) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated', 'demo@calendar.ai', crypt('DemoAccount2024!', gen_salt('bf')), now(), now(), now(), '{"provider":"email","providers":["email"]}', '{"is_demo":true}', false, '');
+
+INSERT INTO public.profiles (id, created_at, updated_at) VALUES ('00000000-0000-0000-0000-000000000001', now(), now());
