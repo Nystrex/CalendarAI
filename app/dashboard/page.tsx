@@ -63,7 +63,6 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import Link from "next/link"
 import { detectTimezone } from "@/lib/utils/timezone"
 import { useAutoSync } from "@/lib/hooks/use-auto-sync"
 import { AvatarChooser } from "@/components/settings/avatar-chooser"
