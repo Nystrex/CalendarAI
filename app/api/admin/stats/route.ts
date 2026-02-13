@@ -21,31 +21,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch profiles
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false })
 
-    if (!profiles || profiles.length === 0) {
-      return NextResponse.json({
-        total_users: 0,
-        total_calendars: 0,
-        total_events: 0,
-        google_connections: 0,
-        users: [],
-        activity: {
-          events_today: 0,
-          events_this_week: 0,
-          events_this_month: 0,
-          active_users_today: 0,
-          active_users_this_week: 0,
-          new_users_this_week: 0,
-          most_active_user: null,
-          busiest_day: null,
-        },
-        recent_audit_logs: [],
-      })
+    console.log("[Admin Stats] Profiles fetched:", profiles?.length || 0)
+    if (profilesError) {
+      console.error("[Admin Stats] Error fetching profiles:", profilesError)
     }
+
+    // Even if no profiles exist yet, continue to show auth users
+    const profiles_safe = profiles || []
 
     // Fetch calendars count
     const { count: totalCalendars } = await supabase
@@ -103,7 +90,7 @@ export async function GET(request: NextRequest) {
       .gte("created_at", weekStart.toISOString())
 
     // New users this week
-    const newUsersThisWeek = profiles.filter((p) => new Date(p.created_at) >= weekStart).length
+    const newUsersThisWeek = profiles_safe.filter((p) => new Date(p.created_at) >= weekStart).length
 
     // Count user events
     const userEventCounts: Record<string, number> = {}
@@ -115,7 +102,7 @@ export async function GET(request: NextRequest) {
     let mostActiveUser = null
     if (Object.keys(userEventCounts).length > 0) {
       const topUser = Object.entries(userEventCounts).sort(([, a], [, b]) => b - a)[0]
-      const profile = profiles.find((p) => p.id === topUser[0])
+      const profile = profiles_safe.find((p) => p.id === topUser[0])
       mostActiveUser = {
         email: profile?.email || "Unknown",
         events: topUser[1],
@@ -130,7 +117,7 @@ export async function GET(request: NextRequest) {
       .limit(20)
 
     // User stats
-    const userStats = profiles.map((profile) => {
+    const userStats = profiles_safe.map((profile) => {
       const calendarCount = calendarsByUser?.filter((c) => c.user_id === profile.id).length || 0
       const eventCount = eventsByUser?.filter((e) => e.user_id === profile.id).length || 0
       const googleConnected =
@@ -152,7 +139,7 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({
-      total_users: profiles.length,
+      total_users: profiles_safe.length,
       total_calendars: totalCalendars || 0,
       total_events: totalEvents || 0,
       google_connections: oauthConnections?.filter((o) => o.provider === "google" && o.is_active).length || 0,
