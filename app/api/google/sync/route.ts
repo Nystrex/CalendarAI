@@ -20,6 +20,13 @@ export async function POST(request: Request) {
 
   isSyncing = true
   lastSyncTime = now
+  
+  // Read and ignore the request body
+  try {
+    await request.json();
+  } catch (error) {
+    // Ignore JSON parsing errors if the body is empty
+  }
 
   try {
     if (!isGoogleOAuthConfigured()) {
