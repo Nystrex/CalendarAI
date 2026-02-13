@@ -25,12 +25,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 })
     }
 
+    console.log("[v0] Service role key set:", !!process.env.SUPABASE_SERVICE_ROLE_KEY, "length:", process.env.SUPABASE_SERVICE_ROLE_KEY?.length)
     const adminSupabase = createAdminClient()
 
     const { data: authUsers, error: authError } = await adminSupabase.auth.admin.listUsers()
 
     if (authError) {
-      console.error("[CalendarAI] Error fetching auth users:", authError)
+      console.log("[v0] Error fetching auth users:", authError.message, authError.status)
       return NextResponse.json({ error: "Failed to fetch auth users" }, { status: 500 })
     }
 
