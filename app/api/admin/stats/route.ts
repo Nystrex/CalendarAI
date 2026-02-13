@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
-const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
+const ADMIN_EMAIL = "mohammedcacouni@gmail.com" // admin
 
 export async function GET(request: NextRequest) {
   try {
