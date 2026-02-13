@@ -188,7 +188,8 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       }
 
       if (!response.ok) {
-        throw new Error("Failed to fetch admin data")
+        const errBody = await response.json().catch(() => ({ error: "Unknown server error" }))
+        throw new Error(errBody.error || `Server error ${response.status}`)
       }
 
       const data = await response.json()
@@ -197,7 +198,7 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
       sessionStorage.setItem("admin_password", pwd)
       toast.success("Admin access granted")
     } catch (error) {
-      toast.error("Failed to authenticate")
+      toast.error(error instanceof Error ? error.message : "Failed to authenticate")
       sessionStorage.removeItem("admin_password")
     } finally {
       setIsLoading(false)

@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
@@ -9,19 +9,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const supabase = createAdminClient()
+    const supabase = await createClient()
 
-    // Check if user exists in auth.users
-    const { data: users, error } = await supabase.auth.admin.listUsers()
+    // Check if user exists by looking up profiles table
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle()
 
-    if (error) {
-      console.error("Error listing users:", error)
-      return NextResponse.json({ exists: false })
-    }
-
-    const userExists = users.users.some((user) => user.email?.toLowerCase() === email.toLowerCase())
-
-    return NextResponse.json({ exists: userExists })
+    return NextResponse.json({ exists: !!profile })
   } catch (error) {
     console.error("Error checking email:", error)
     return NextResponse.json({ exists: false })
