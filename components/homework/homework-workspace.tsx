@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react"
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,16 +75,11 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
 
   const { messages, status, setMessages, sendMessage } = useChat({
     id: conversationId,
-    transport: new DefaultChatTransport({
-      api: "/api/homework/chat",
-      prepareSendMessagesRequest: ({ messages }) => ({
-        body: {
-          messages,
-          conversationId,
-          userId,
-        },
-      }),
-    }),
+    api: "/api/homework/chat",
+    body: {
+      conversationId,
+      userId,
+    },
     onError: (error) => {
       console.error("[v0] Chat error:", error)
     },
@@ -182,7 +176,7 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
             reader.onload = (e) => {
               let result = e.target?.result as string
               // Sanitize content to remove null bytes and invalid Unicode
-              result = result.replace(/\0/g, "").replace(/[\uFFFD]/g, "?")
+              result = result.replace(/\\0/g, "").replace(/[\uFFFD]/g, "?")
               resolve(result)
             }
             reader.onerror = reject
@@ -217,7 +211,7 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
         messageText += textFileInfo + pdfFileInfo
       }
       
-      sendMessage({ text: messageText })
+      sendMessage({ content: messageText })
       setLocalInput("")
       setUploadedFiles([])
       if (fileInputRef.current) {

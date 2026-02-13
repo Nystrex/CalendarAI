@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-export async function POST() {
+async function checkTrial() {
   try {
     const supabase = await createClient()
     
@@ -69,4 +69,12 @@ export async function POST() {
     console.error("Trial check error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+export async function POST() {
+  return checkTrial()
+}
+
+export async function GET() {
+  return checkTrial()
 }
