@@ -38,7 +38,7 @@ export function GoogleCalendarConnect({ isConnected, onConnectionChange }: Googl
         throw new Error(data.error || "Failed to get auth URL")
       }
     } catch (error) {
-      console.error("[v0] Error connecting to Google:", error)
+      console.error("Error connecting to Google:", error)
       toast.error("Failed to connect to Google Calendar")
       setIsConnecting(false)
     }
@@ -60,7 +60,7 @@ export function GoogleCalendarConnect({ isConnected, onConnectionChange }: Googl
         throw new Error(data.error || "Sync failed")
       }
     } catch (error) {
-      console.error("[v0] Error syncing with Google:", error)
+      console.error("Error syncing with Google:", error)
       toast.error("Failed to sync with Google Calendar")
     } finally {
       setIsSyncing(false)
@@ -85,7 +85,7 @@ export function GoogleCalendarConnect({ isConnected, onConnectionChange }: Googl
         throw new Error("Disconnect failed")
       }
     } catch (error) {
-      console.error("[v0] Error disconnecting from Google:", error)
+      console.error("Error disconnecting from Google:", error)
       toast.error("Failed to disconnect from Google Calendar")
     } finally {
       setIsDisconnecting(false)

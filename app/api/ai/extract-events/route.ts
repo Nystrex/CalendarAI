@@ -34,7 +34,7 @@ async function parsePDF(buffer: Buffer): Promise<string> {
 
     return text || ""
   } catch (error) {
-    console.error("[v0] unpdf parse error:", error)
+    console.error("unpdf parse error:", error)
     throw new Error("Failed to parse PDF")
   }
 }
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     try {
       formData = await req.formData()
     } catch (formError) {
-      console.error("[v0] FormData parsing error:", formError)
+      console.error("FormData parsing error:", formError)
       return Response.json({ error: "Invalid form data" }, { status: 400 })
     }
 
@@ -79,7 +79,7 @@ Current date context: January 2026`
       try {
         bytes = await file.arrayBuffer()
       } catch (fileError) {
-        console.error("[v0] File read error:", fileError)
+        console.error("File read error:", fileError)
         return Response.json({ error: "Failed to read uploaded file" }, { status: 400 })
       }
 
@@ -111,7 +111,7 @@ Current date context: January 2026`
             text: `PDF Document Content:\n${pdfText}`,
           })
         } catch (pdfError) {
-          console.error("[v0] PDF parsing error:", pdfError)
+          console.error("PDF parsing error:", pdfError)
           return Response.json(
             {
               error: "Failed to parse PDF. Please try taking a screenshot of the content instead.",
@@ -152,7 +152,7 @@ Current date context: January 2026`
 
       return Response.json({ events: object.events })
     } catch (aiError) {
-      console.error("[v0] OpenAI API error:", aiError)
+      console.error("OpenAI API error:", aiError)
       const errorMessage = aiError instanceof Error ? aiError.message : "AI processing failed"
 
       if (errorMessage.includes("API key") || errorMessage.includes("authentication")) {
@@ -168,7 +168,7 @@ Current date context: January 2026`
       return Response.json({ error: `AI extraction failed: ${errorMessage}` }, { status: 500 })
     }
   } catch (error) {
-    console.error("[v0] AI extraction error:", error)
+    console.error("AI extraction error:", error)
     const errorMessage = error instanceof Error ? error.message : "Failed to extract events"
     return Response.json({ error: errorMessage }, { status: 500 })
   }

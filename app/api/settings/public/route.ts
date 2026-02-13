@@ -12,7 +12,21 @@ export async function GET() {
 
   const settings: Record<string, unknown> = {}
   for (const row of data || []) {
-    settings[row.key] = row.value
+    let value = row.value
+    
+    // Convert string boolean values to actual booleans
+    if (typeof value === "string") {
+      if (value.toLowerCase() === "true") {
+        value = true
+      } else if (value.toLowerCase() === "false") {
+        value = false
+      } else if (!isNaN(Number(value))) {
+        // Try to convert to number if it's a numeric string
+        value = Number(value)
+      }
+    }
+    
+    settings[row.key] = value
   }
 
   return NextResponse.json(settings)

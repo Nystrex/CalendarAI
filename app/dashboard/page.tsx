@@ -68,6 +68,7 @@ import { AvatarChooser } from "@/components/settings/avatar-chooser"
 import { GoogleCalendarConnect } from "@/components/integrations/google-calendar-connect"
 import { OverviewDashboard } from "@/components/dashboard/overview-dashboard"
 import { HomeworkChat } from "@/components/homework/homework-chat" // Import HomeworkChat
+import { useAppSettings } from "@/lib/hooks/use-app-settings"
 
 type EventType = Database["public"]["Tables"]["events"]["Row"] & {
   calendar?: { color: string; name: string }
@@ -77,6 +78,7 @@ type ViewType = "day" | "week" | "month" | "year"
 
 export default function DashboardPage() {
   const { currentDate, view, dateRange, goToNext, goToPrev, goToToday, changeView: originalChangeView, setCurrentDate } = useCalendar()
+  const { settings: appSettings } = useAppSettings()
   const [allEvents, setAllEvents] = useState<EventType[]>([])
   const [calendars, setCalendars] = useState<CalendarType[]>([])
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([])
@@ -721,7 +723,9 @@ export default function DashboardPage() {
               <Link2 className="h-5 w-5" />
               Integrations
             </h2>
-            <GoogleCalendarConnect isConnected={isGoogleConnected} onConnectionChange={checkGoogleConnection} />
+            {appSettings?.feature_google_calendar !== false && (
+              <GoogleCalendarConnect isConnected={isGoogleConnected} onConnectionChange={checkGoogleConnection} />
+            )}
           </section>
 
           {/* Support */}
@@ -859,6 +863,7 @@ export default function DashboardPage() {
             variant={dashboardMode === "homework" ? "secondary" : "ghost"}
             className={`w-full justify-start transition-all ${dashboardMode === "homework" ? "bg-purple-500/10 text-purple-400 hover:bg-purple-500/15" : "hover:bg-muted/50"}`}
             onClick={() => setDashboardMode("homework")}
+            disabled={appSettings?.feature_homework_ai === false}
           >
             <Brain className="h-4 w-4 shrink-0" />
             <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Homework Help</span>
@@ -948,7 +953,8 @@ export default function DashboardPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setAiExtractorOpen(true)}
-                className="bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                disabled={appSettings?.feature_ai_extraction === false}
+                className="bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Brain className="mr-2 h-4 w-4 text-purple-600 dark:text-purple-400" />
                 <span className="text-purple-700 dark:text-purple-300">AI Extract</span>
@@ -1031,7 +1037,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {dashboardMode === "homework" && (
+        {dashboardMode === "homework" && appSettings?.feature_homework_ai !== false && (
           <HomeworkWorkspace userId={userId || ""} userAvatar={userAvatar || undefined} />
         )}
       </div>
@@ -1131,12 +1137,14 @@ export default function DashboardPage() {
         onEventsSaved={handleEventSaved}
       />
 
-      <AIEventExtractor
-        open={aiExtractorOpen}
-        onOpenChange={setAiExtractorOpen}
-        calendars={calendars}
-        onEventsSaved={handleEventSaved}
-      />
+      {appSettings?.feature_ai_extraction !== false && (
+        <AIEventExtractor
+          open={aiExtractorOpen}
+          onOpenChange={setAiExtractorOpen}
+          calendars={calendars}
+          onEventsSaved={handleEventSaved}
+        />
+      )}
 
       {/* Support Chat */}
       {!isAdmin && <SupportChat />}

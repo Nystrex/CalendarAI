@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             .eq("id", connection.id)
         }
       } catch (refreshError) {
-        console.error("[v0] Failed to refresh access token:", refreshError)
+        console.error("Failed to refresh access token:", refreshError)
         return NextResponse.json(
           {
             error: "Google Calendar authorization expired. Please reconnect your account.",

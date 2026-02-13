@@ -29,7 +29,6 @@ export async function POST(request: Request) {
 
     // If event isn't synced with Google, just return success
     if (!event.provider_event_id || !event.calendar?.provider_calendar_id) {
-      console.log("[v0] Event not synced with Google, skipping Google deletion")
       return NextResponse.json({ success: true })
     }
 
@@ -42,7 +41,6 @@ export async function POST(request: Request) {
       .eq("is_active", true)
 
     if (!connections || connections.length === 0) {
-      console.log("[v0] No Google account connected, skipping Google deletion")
       return NextResponse.json({ success: true })
     }
 
@@ -74,10 +72,9 @@ export async function POST(request: Request) {
     // Delete from Google Calendar
     try {
       await googleAPI.deleteEvent(event.calendar.provider_calendar_id, event.provider_event_id)
-      console.log("[v0] Successfully deleted event from Google Calendar")
     } catch (error) {
       // If event doesn't exist in Google Calendar (404), that's okay
-      console.log("[v0] Error deleting from Google (might not exist):", error)
+      console.log("Error deleting from Google (might not exist):", error)
     }
 
     return NextResponse.json({ success: true })

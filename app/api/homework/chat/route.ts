@@ -5,14 +5,10 @@ export const maxDuration = 60
 
 export async function POST(req: Request) {
   try {
-    console.log("[v0] Homework chat API called")
     const body = await req.json()
     const { messages, conversationId, userId, fileAttachments } = body
 
-    console.log("[v0] Received:", { messagesCount: messages?.length, conversationId, userId })
-
     if (!userId || !messages) {
-      console.error("[v0] Missing required fields")
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 })
     }
 
@@ -77,7 +73,7 @@ export async function POST(req: Request) {
       .limit(20)
 
     if (eventsError) {
-      console.error("[v0] Error fetching events:", eventsError)
+      console.error("Error fetching events:", eventsError)
     }
 
     // Build context from calendar events
@@ -140,7 +136,6 @@ Guidelines:
         
         // Add file parts - convert base64 to Uint8Array for AI SDK
         for (const file of fileAttachments) {
-          console.log("[v0] Processing file attachment:", file.name, file.type, "data length:", file.data?.length)
           const binaryData = Buffer.from(file.data, "base64")
           
           if (file.type.startsWith("image/")) {
@@ -173,10 +168,7 @@ Guidelines:
       return false
     })
 
-    console.log("[v0] Model messages count:", modelMessages.length)
-
     // Call AI with streaming - using Gemini 2.5 Flash via Vercel AI Gateway
-    console.log("[v0] Calling Gemini 2.5 Flash with streamText")
     const result = streamText({
       model: "google/gemini-2.5-flash",
       system: systemPrompt,
@@ -185,8 +177,6 @@ Guidelines:
       maxOutputTokens: 2048,
     })
 
-    console.log("[v0] Returning stream response")
-    
     // Save user message immediately
     if (messages.length > 0) {
       const userMessage = messages[messages.length - 1]
@@ -221,23 +211,21 @@ Guidelines:
 
     // Use onFinish callback on streamText result to save assistant response
     result.text.then(async (text) => {
-      console.log("[v0] Stream complete, assistant text length:", text.length)
       if (text && conversationId && userId) {
-        const { error } = await supabase.from("homework_chat_history").insert({
+        await supabase.from("homework_chat_history").insert({
           user_id: userId,
           conversation_id: conversationId,
           role: "assistant",
           content: text,
         })
-        console.log("[v0] Assistant message saved, error:", error)
       }
     }).catch((err) => {
-      console.error("[v0] Error saving assistant message:", err)
+      console.error("Error saving assistant message:", err)
     })
 
     return result.toUIMessageStreamResponse()
   } catch (error) {
-    console.error("[v0] Homework chat error:", error)
+    console.error("Homework chat error:", error)
     return new Response(JSON.stringify({ error: "Internal server error", details: String(error) }), { status: 500 })
   }
 }

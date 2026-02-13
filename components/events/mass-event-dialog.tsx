@@ -222,7 +222,7 @@ export function MassEventDialog({
       onEventsSaved()
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error creating events:", error)
+      console.error("Error creating events:", error)
       toast.error(error instanceof Error ? error.message : "Failed to create events")
     } finally {
       setIsLoading(false)
@@ -263,7 +263,7 @@ export function MassEventDialog({
       onEventsSaved()
       onOpenChange(false)
     } catch (error) {
-      console.error("[v0] Error deleting events:", error)
+      console.error("Error deleting events:", error)
       toast.error(error instanceof Error ? error.message : "Failed to delete events")
     } finally {
       setIsLoading(false)
