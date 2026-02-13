@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@calendar.ai"
+const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
