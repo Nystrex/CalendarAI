@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 
 const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
@@ -13,8 +14,11 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Use admin client with service role key for admin operations
+    const adminClient = createAdminClient()
+
     // Create demo user with admin API
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: "demo@calendar.ai",
       password: "DemoAccount2024!",
       email_confirm: true,
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     // The profile should be auto-created by the trigger, but let's verify
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("*")
       .eq("id", authData.user.id)
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
 
     // If profile doesn't exist, create it manually
     if (!profile) {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await adminClient
         .from("profiles")
         .insert({
           id: authData.user.id,
