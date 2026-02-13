@@ -20,24 +20,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 })
     }
 
-    // Fetch profiles (RLS policies allow admin to see all)
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("*")
       .order("created_at", { ascending: false })
 
     if (profilesError) {
-      console.error("[CalendarAI] Error fetching profiles:", profilesError)
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
     }
 
-    const { count: totalCalendars } = await supabase.from("calendars").select("*", { count: "exact", head: true })
+    const { count: totalCalendars } = await supabase
+      .from("calendars")
+      .select("*", { count: "exact", head: true })
 
-    const { count: totalEvents } = await supabase.from("events").select("*", { count: "exact", head: true })
+    const { count: totalEvents } = await supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
 
-    const { data: calendarCounts } = await supabase.from("calendars").select("user_id")
+    const { data: calendarCounts } = await supabase
+      .from("calendars")
+      .select("user_id")
 
-    const { data: eventCounts } = await supabase.from("events").select("user_id")
+    const { data: eventCounts } = await supabase
+      .from("events")
+      .select("user_id")
 
     const { data: oauthConnections } = await supabase
       .from("oauth_connections")
@@ -50,7 +56,6 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(todayStart)
     monthStart.setDate(monthStart.getDate() - 30)
 
-    // Events created in different time periods
     const { count: eventsToday } = await supabase
       .from("events")
       .select("*", { count: "exact", head: true })
@@ -66,7 +71,6 @@ export async function GET(request: NextRequest) {
       .select("*", { count: "exact", head: true })
       .gte("created_at", monthStart.toISOString())
 
-    // Active users (users who created events)
     const { data: activeUsersToday } = await supabase
       .from("events")
       .select("user_id")
@@ -77,21 +81,23 @@ export async function GET(request: NextRequest) {
       .select("user_id")
       .gte("created_at", weekStart.toISOString())
 
-    // New users this week - use profiles instead of authUsers
-    const newUsersThisWeek = profiles.filter((p) => new Date(p.created_at) >= weekStart).length
+    const newUsersThisWeek = profiles.filter(
+      (p) => new Date(p.created_at) >= weekStart
+    ).length
 
-    // Most active user (by event count)
     const userEventCounts = eventCounts?.reduce(
       (acc, event) => {
         acc[event.user_id] = (acc[event.user_id] || 0) + 1
         return acc
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     )
 
     let mostActiveUser = null
     if (userEventCounts) {
-      const mostActiveUserId = Object.entries(userEventCounts).sort(([, a], [, b]) => b - a)[0]
+      const mostActiveUserId = Object.entries(userEventCounts).sort(
+        ([, a], [, b]) => b - a
+      )[0]
       if (mostActiveUserId) {
         const profile = profiles.find((p) => p.id === mostActiveUserId[0])
         mostActiveUser = {
@@ -101,25 +107,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Busiest day of the week
     const { data: allEvents } = await supabase
       .from("events")
       .select("start_time")
       .gte("created_at", monthStart.toISOString())
 
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ]
     const dayCounts = allEvents?.reduce(
       (acc, event) => {
         const day = new Date(event.start_time).getDay()
         acc[day] = (acc[day] || 0) + 1
         return acc
       },
-      {} as Record<number, number>,
+      {} as Record<number, number>
     )
 
     let busiestDay = null
     if (dayCounts && Object.keys(dayCounts).length > 0) {
-      const busiest = Object.entries(dayCounts).sort(([, a], [, b]) => b - a)[0]
+      const busiest = Object.entries(dayCounts).sort(
+        ([, a], [, b]) => b - a
+      )[0]
       busiestDay = {
         day: dayNames[Number.parseInt(busiest[0])],
         count: busiest[1],
@@ -132,7 +147,6 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(20)
 
-    // Add user emails to audit logs
     const auditLogsWithEmails = recentAuditLogs?.map((log) => {
       const profile = profiles.find((p) => p.id === log.user_id)
       return {
@@ -142,10 +156,17 @@ export async function GET(request: NextRequest) {
     })
 
     const userStats = profiles.map((profile) => {
-      const userCalendars = calendarCounts?.filter((c) => c.user_id === profile.id).length || 0
-      const userEvents = eventCounts?.filter((e) => e.user_id === profile.id).length || 0
+      const userCalendars =
+        calendarCounts?.filter((c) => c.user_id === profile.id).length || 0
+      const userEvents =
+        eventCounts?.filter((e) => e.user_id === profile.id).length || 0
       const googleConnected =
-        oauthConnections?.some((o) => o.user_id === profile.id && o.provider === "google" && o.is_active) || false
+        oauthConnections?.some(
+          (o) =>
+            o.user_id === profile.id &&
+            o.provider === "google" &&
+            o.is_active
+        ) || false
 
       return {
         id: profile.id,
@@ -167,14 +188,18 @@ export async function GET(request: NextRequest) {
       total_users: profiles.length,
       total_calendars: totalCalendars || 0,
       total_events: totalEvents || 0,
-      google_connections: oauthConnections?.filter((o) => o.is_active).length || 0,
+      google_connections:
+        oauthConnections?.filter((o) => o.is_active).length || 0,
       users: userStats,
       activity: {
         events_today: eventsToday || 0,
         events_this_week: eventsThisWeek || 0,
         events_this_month: eventsThisMonth || 0,
-        active_users_today: new Set(activeUsersToday?.map((e) => e.user_id)).size,
-        active_users_this_week: new Set(activeUsersWeek?.map((e) => e.user_id)).size,
+        active_users_today: new Set(activeUsersToday?.map((e) => e.user_id))
+          .size,
+        active_users_this_week: new Set(
+          activeUsersWeek?.map((e) => e.user_id)
+        ).size,
         new_users_this_week: newUsersThisWeek,
         most_active_user: mostActiveUser,
         busiest_day: busiestDay,
@@ -185,6 +210,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(stats)
   } catch (error) {
     console.error("[CalendarAI] Admin stats error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }

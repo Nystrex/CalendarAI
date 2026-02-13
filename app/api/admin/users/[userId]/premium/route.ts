@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { type NextRequest, NextResponse } from "next/server"
 
 const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
@@ -26,18 +25,14 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { action, duration = 12 } = body // "grant" or "revoke", duration in months (default 12)
+    const { action, duration = 12 } = body
 
-    const adminSupabase = createAdminClient()
-
-    // Update user's subscription tier
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       subscription_tier: action === "grant" ? "premium" : "free",
       subscription_status: action === "grant" ? "active" : "inactive",
       updated_at: new Date().toISOString(),
     }
 
-    // For premium grant, set expiry based on duration
     if (action === "grant") {
       const expiryDate = new Date()
       expiryDate.setMonth(expiryDate.getMonth() + duration)
@@ -46,18 +41,19 @@ export async function PATCH(
       updates.subscription_current_period_end = null
     }
 
-    const { error: updateError } = await adminSupabase
+    const { error: updateError } = await supabase
       .from("profiles")
       .update(updates)
       .eq("id", userId)
 
     if (updateError) {
-      console.error("[CalendarAI] Error updating user subscription:", updateError)
-      return NextResponse.json({ error: "Failed to update subscription" }, { status: 500 })
+      return NextResponse.json(
+        { error: "Failed to update subscription" },
+        { status: 500 }
+      )
     }
 
-    // Log this action in subscription history
-    await adminSupabase.from("subscription_history").insert({
+    await supabase.from("subscription_history").insert({
       user_id: userId,
       subscription_tier: action === "grant" ? "premium" : "free",
       subscription_status: action === "grant" ? "active" : "inactive",
@@ -71,10 +67,16 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: action === "grant" ? "Premium access granted" : "Premium access revoked",
+      message:
+        action === "grant"
+          ? "Premium access granted"
+          : "Premium access revoked",
     })
   } catch (error) {
     console.error("[CalendarAI] Grant/revoke premium error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }
