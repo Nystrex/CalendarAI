@@ -43,9 +43,11 @@ import {
   Star,
   MessageCircle,
   Settings,
+  ListTodo
 } from "lucide-react"
 import { AdminSupportPanel } from "./admin-support-panel"
 import { AdminConfigPanel } from "./admin-config-panel"
+import { ToDoList } from "../to-do-list"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -501,7 +503,7 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
         {stats && (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-<TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+<TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
   <TabsTrigger value="overview" className="gap-2">
   <BarChart3 className="h-4 w-4" />
   <span className="hidden sm:inline">Overview</span>
@@ -525,6 +527,10 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
   <TabsTrigger value="system" className="gap-2">
   <Server className="h-4 w-4" />
   <span className="hidden sm:inline">System</span>
+  </TabsTrigger>
+    <TabsTrigger value="todo" className="gap-2">
+  <ListTodo className="h-4 w-4" />
+  <span className="hidden sm:inline">To-Do</span>
   </TabsTrigger>
   </TabsList>
 
@@ -759,7 +765,7 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
                                   <div className="flex items-center gap-1">
                                     <span>{user.university}</span>
                                     {user.university_verified && (
-                                      <CheckCircle2 className="h-3 w-3 text-green-500" title="Verified" />
+                                      <CheckCircle2 className="h-3 w-3 text-green-500" />
                                     )}
                                   </div>
                                 ) : (
@@ -914,6 +920,12 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
               <TabsContent value="support" className="space-y-6">
                 <AdminSupportPanel />
               </TabsContent>
+              
+{/* To-Do Tab */}
+<TabsContent value="todo" className="space-y-6">
+  <ToDoList />
+</TabsContent>
+
 
               {/* System Tab */}
               <TabsContent value="system" className="space-y-6">
