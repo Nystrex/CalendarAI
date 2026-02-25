@@ -14,11 +14,18 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { text, completed } = await request.json()
+    const { text, completed, priority, due_date } = await request.json()
 
-    const updates: { text?: string; completed?: boolean } = {}
+    const updates: { text?: string; completed?: boolean; priority?: string; due_date?: string | null } = {}
     if (text !== undefined) updates.text = text.trim()
     if (completed !== undefined) updates.completed = completed
+    if (priority !== undefined) {
+      if (!['low', 'medium', 'high'].includes(priority)) {
+        return NextResponse.json({ error: "Invalid priority" }, { status: 400 })
+      }
+      updates.priority = priority
+    }
+    if (due_date !== undefined) updates.due_date = due_date || null
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
