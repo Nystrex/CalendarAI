@@ -37,26 +37,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { text, priority = 'medium', due_date } = await request.json()
+    const { text, priority, due_date } = await request.json()
 
     if (!text || typeof text !== "string" || text.trim() === "") {
       return NextResponse.json({ error: "Text is required" }, { status: 400 })
     }
 
-    // Validate priority
-    if (!['low', 'medium', 'high'].includes(priority)) {
-      return NextResponse.json({ error: "Invalid priority" }, { status: 400 })
+    const insertData: any = {
+      user_id: user.id,
+      text: text.trim(),
+      completed: false,
     }
+
+    // Only add priority/due_date if provided (for backwards compatibility)
+    if (priority) insertData.priority = priority
+    if (due_date) insertData.due_date = due_date
 
     const { data: todo, error } = await supabase
       .from("todos")
-      .insert({
-        user_id: user.id,
-        text: text.trim(),
-        completed: false,
-        priority,
-        due_date: due_date || null,
-      })
+      .insert(insertData)
       .select()
       .single()
 

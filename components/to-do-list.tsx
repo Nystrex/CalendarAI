@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Loader2, Trash2, Calendar, Flag, Filter, CheckCircle2, Circle, Clock } from "lucide-react"
-import { format, isPast, isToday, isTomorrow, parseISO } from "date-fns"
+import { Loader2, Plus, CheckCircle2, Trash2, Calendar, Flag } from "lucide-react"
 
 type Priority = "low" | "medium" | "high"
 
@@ -17,370 +17,330 @@ interface ToDoItem {
   id: string
   text: string
   completed: boolean
-  priority: Priority
-  due_date: string | null
+  priority?: Priority
+  due_date?: string | null
   created_at: string
 }
 
-type FilterType = "all" | "active" | "completed"
-type SortType = "newest" | "priority" | "due_date"
+const priorityColors = {
+  high: "bg-red-500",
+  medium: "bg-yellow-500", 
+  low: "bg-green-500",
+}
 
-const priorityConfig = {
-  high: { color: "bg-red-500", text: "text-red-600", label: "High", icon: Flag },
-  medium: { color: "bg-yellow-500", text: "text-yellow-600", label: "Medium", icon: Flag },
-  low: { color: "bg-green-500", text: "text-green-600", label: "Low", icon: Flag },
+const priorityLabels = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
 }
 
 export function ToDoList() {
   const [todos, setTodos] = useState<ToDoItem[]>([])
-  const [input, setInput] = useState("")
-  const [priority, setPriority] = useState<Priority>("medium")
-  const [dueDate, setDueDate] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [newTodoText, setNewTodoText] = useState("")
+  const [newTodoPriority, setNewTodoPriority] = useState<Priority>("medium")
+  const [newTodoDate, setNewTodoDate] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [filter, setFilter] = useState<FilterType>("all")
-  const [sortBy, setSortBy] = useState<SortType>("newest")
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
 
-  // Load todos on mount
   useEffect(() => {
-    fetchTodos()
+    loadTodos()
   }, [])
 
-  const fetchTodos = async () => {
+  const loadTodos = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch("/api/todos")
-      if (!response.ok) {
-        throw new Error("Failed to fetch todos")
-      }
-      const data = await response.json()
+      const res = await fetch("/api/todos")
+      if (!res.ok) throw new Error("Failed to load")
+      const data = await res.json()
       setTodos(data.todos || [])
-    } catch (error) {
-      console.error("[v0] Error fetching todos:", error)
+    } catch {
       toast.error("Failed to load todos")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleAddTodo = async () => {
-    if (input.trim() === "") return
-
+  const addTodo = async () => {
+    if (!newTodoText.trim()) return
+    
     try {
       setIsSubmitting(true)
-      const response = await fetch("/api/todos", {
+      const res = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          text: input.trim(),
-          priority,
-          due_date: dueDate || null,
+        body: JSON.stringify({
+          text: newTodoText.trim(),
+          priority: newTodoPriority,
+          due_date: newTodoDate || undefined,
         }),
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to add todo")
-      }
-
-      const data = await response.json()
+      
+      if (!res.ok) throw new Error("Failed to add")
+      
+      const data = await res.json()
       setTodos([data.todo, ...todos])
-      setInput("")
-      setPriority("medium")
-      setDueDate("")
-      toast.success("Todo added")
-    } catch (error) {
-      console.error("[v0] Error adding todo:", error)
+      setNewTodoText("")
+      setNewTodoPriority("medium")
+      setNewTodoDate("")
+      setDialogOpen(false)
+      toast.success("Todo added!")
+    } catch {
       toast.error("Failed to add todo")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleToggleTodo = async (id: string, completed: boolean) => {
+  const toggleTodo = async (todo: ToDoItem) => {
     try {
-      const response = await fetch(`/api/todos/${id}`, {
+      const res = await fetch(`/api/todos/${todo.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: !completed }),
+        body: JSON.stringify({ completed: !todo.completed }),
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to update todo")
-      }
-
-      const data = await response.json()
-      setTodos(todos.map((todo) => (todo.id === id ? data.todo : todo)))
-    } catch (error) {
-      console.error("[v0] Error updating todo:", error)
-      toast.error("Failed to update todo")
+      
+      if (!res.ok) throw new Error("Failed to update")
+      
+      const data = await res.json()
+      setTodos(todos.map((t) => (t.id === todo.id ? data.todo : t)))
+    } catch {
+      toast.error("Failed to update")
     }
   }
 
-  const handleDeleteTodo = async (id: string) => {
+  const deleteTodo = async (id: string) => {
     try {
-      const response = await fetch(`/api/todos/${id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete todo")
-      }
-
-      setTodos(todos.filter((todo) => todo.id !== id))
+      const res = await fetch(`/api/todos/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete")
+      
+      setTodos(todos.filter((t) => t.id !== id))
       toast.success("Todo deleted")
-    } catch (error) {
-      console.error("[v0] Error deleting todo:", error)
-      toast.error("Failed to delete todo")
+    } catch {
+      toast.error("Failed to delete")
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleAddTodo()
-    }
-  }
-
-  // Filter and sort todos
-  const filteredAndSortedTodos = useMemo(() => {
-    let result = [...todos]
-
-    // Filter
-    if (filter === "active") {
-      result = result.filter((t) => !t.completed)
-    } else if (filter === "completed") {
-      result = result.filter((t) => t.completed)
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      if (sortBy === "priority") {
-        const priorityOrder = { high: 0, medium: 1, low: 2 }
-        return priorityOrder[a.priority] - priorityOrder[b.priority]
-      }
-      if (sortBy === "due_date") {
-        if (!a.due_date && !b.due_date) return 0
-        if (!a.due_date) return 1
-        if (!b.due_date) return -1
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-      }
-      // newest - by created_at
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-
-    return result
-  }, [todos, filter, sortBy])
+  const filteredTodos = todos.filter((t) => {
+    if (filter === "active") return !t.completed
+    if (filter === "completed") return t.completed
+    return true
+  })
 
   const completedCount = todos.filter((t) => t.completed).length
-  const highPriorityCount = todos.filter((t) => t.priority === "high" && !t.completed).length
-
-  function getDueDateBadge(dueDate: string | null) {
-    if (!dueDate) return null
-    
-    const date = parseISO(dueDate)
-    const isOverdue = isPast(date) && !isToday(date)
-    
-    if (isOverdue) {
-      return { text: "Overdue", variant: "destructive" as const, icon: Clock }
-    }
-    if (isToday(date)) {
-      return { text: "Today", variant: "default" as const, icon: CheckCircle2 }
-    }
-    if (isTomorrow(date)) {
-      return { text: "Tomorrow", variant: "secondary" as const, icon: Calendar }
-    }
-    return { text: format(date, "MMM d"), variant: "outline" as const, icon: Calendar }
-  }
+  const activeCount = todos.filter((t) => !t.completed).length
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <CheckCircle2 className="h-5 w-5" />
             To-Do List
-          </span>
-          <div className="flex items-center gap-2">
-            {highPriorityCount > 0 && (
-              <Badge variant="destructive" className="animate-pulse">
-                {highPriorityCount} urgent
-              </Badge>
-            )}
-            <span className="text-sm font-normal text-muted-foreground">
+            <Badge variant="secondary" className="text-xs">
               {completedCount}/{todos.length}
-            </span>
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add Todo Form */}
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              placeholder="What needs to be done?"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isSubmitting}
-              className="flex-1"
-            />
-            <Button 
-              onClick={handleAddTodo} 
-              disabled={isSubmitting || input.trim() === ""}
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-            </Button>
-          </div>
+            </Badge>
+          </CardTitle>
           
-          <div className="flex gap-2">
-            <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
-              <SelectTrigger className="w-[120px]">
-                <Flag className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="high">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    High
-                  </span>
-                </SelectItem>
-                <SelectItem value="medium">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                    Medium
-                  </span>
-                </SelectItem>
-                <SelectItem value="low">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    Low
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <Plus className="h-4 w-4" />
+                Add New
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Add New Todo
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">What to do?</label>
+                  <Input
+                    placeholder="Enter your todo..."
+                    value={newTodoText}
+                    onChange={(e) => setNewTodoText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && addTodo()}
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Flag className="h-4 w-4" />
+                    Priority
+                  </label>
+                  <Select value={newTodoPriority} onValueChange={(v) => setNewTodoPriority(v as Priority)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          High Priority
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="medium">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                          Medium Priority
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="low">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500" />
+                          Low Priority
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-[150px]"
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Due Date (optional)
+                  </label>
+                  <Input
+                    type="date"
+                    value={newTodoDate}
+                    onChange={(e) => setNewTodoDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+
+                <Button 
+                  onClick={addTodo} 
+                  disabled={!newTodoText.trim() || isSubmitting}
+                  className="mt-2"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Add Todo
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {/* Filters & Sort */}
-        {todos.length > 0 && (
-          <div className="flex items-center justify-between border-b pb-2">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-                <SelectTrigger className="w-[120px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortType)}>
-              <SelectTrigger className="w-[140px] h-8 text-xs">
-                <SelectValue placeholder="Sort by..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest first</SelectItem>
-                <SelectItem value="priority">Priority</SelectItem>
-                <SelectItem value="due_date">Due date</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Filter Tabs */}
+        <div className="flex gap-1 mt-3 border-b">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filter === "all" 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All ({todos.length})
+          </button>
+          <button
+            onClick={() => setFilter("active")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filter === "active" 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Active ({activeCount})
+          </button>
+          <button
+            onClick={() => setFilter("completed")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+              filter === "completed" 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Done ({completedCount})
+          </button>
+        </div>
+      </CardHeader>
 
+      <CardContent className="pt-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : filteredAndSortedTodos.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            {filter === "completed" ? (
-              <>
-                <Circle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No completed todos yet</p>
-              </>
-            ) : filter === "active" ? (
-              <>
-                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>All done! No active todos</p>
-              </>
-            ) : (
-              <>
-                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No todos yet. Add one above!</p>
-              </>
-            )}
+        ) : filteredTodos.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-medium mb-1">
+              {filter === "completed" 
+                ? "No completed todos" 
+                : filter === "active" 
+                  ? "All done! 🎉" 
+                  : "No todos yet"}
+            </p>
+            <p className="text-sm">
+              {filter === "completed" 
+                ? "Complete some todos to see them here" 
+                : filter === "active" 
+                  ? "You've completed all your todos" 
+                  : "Click 'Add New' to create your first todo"}
+            </p>
           </div>
         ) : (
-          <ul className="space-y-2">
-            {filteredAndSortedTodos.map((todo) => {
-              const dueBadge = getDueDateBadge(todo.due_date)
-              const PriorityIcon = priorityConfig[todo.priority].icon
-              
-              return (
-                <li
-                  key={todo.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 transition-all hover:shadow-sm ${
-                    todo.completed ? "bg-muted/50" : "hover:bg-muted/30"
-                  } ${todo.priority === "high" && !todo.completed ? "border-l-4 border-l-red-500" : ""}`}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Checkbox
-                      id={`todo-${todo.id}`}
-                      checked={todo.completed}
-                      onCheckedChange={() => handleToggleTodo(todo.id, todo.completed)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <label
-                        htmlFor={`todo-${todo.id}`}
-                        className={`block text-sm font-medium cursor-pointer ${
-                          todo.completed ? "line-through text-muted-foreground" : ""
-                        }`}
-                      >
-                        {todo.text}
-                      </label>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {/* Priority Badge */}
-                        <span className={`text-xs flex items-center gap-1 ${priorityConfig[todo.priority].text}`}>
-                          <PriorityIcon className="h-3 w-3" />
-                          {priorityConfig[todo.priority].label}
-                        </span>
-                        
-                        {/* Due Date Badge */}
-                        {dueBadge && (
-                          <Badge variant={dueBadge.variant} className="text-xs h-5 px-1.5">
-                            <dueBadge.icon className="h-3 w-3 mr-1" />
-                            {dueBadge.text}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          <ul className="space-y-2 mt-4">
+            {filteredTodos.map((todo) => (
+              <li
+                key={todo.id}
+                className={`group flex items-start gap-3 p-3 rounded-lg border transition-all hover:shadow-md ${
+                  todo.completed 
+                    ? "bg-muted/30 opacity-60" 
+                    : "bg-card hover:bg-muted/50"
+                } ${todo.priority === "high" && !todo.completed ? "border-l-4 border-l-red-500" : ""}`}
+              >
+                <Checkbox
+                  checked={todo.completed}
+                  onCheckedChange={() => toggleTodo(todo)}
+                  className="mt-1"
+                />
+                
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium leading-relaxed ${
+                    todo.completed ? "line-through text-muted-foreground" : ""
+                  }`}>
+                    {todo.text}
+                  </p>
                   
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteTodo(todo.id)}
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </li>
-              )
-            })}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {todo.priority && (
+                      <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                        <span className={`w-2 h-2 rounded-full ${priorityColors[todo.priority]}`} />
+                        {priorityLabels[todo.priority]}
+                      </span>
+                    )}
+                    
+                    {todo.due_date && (
+                      <span className="text-xs flex items-center gap-1 text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(todo.due_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteTodo(todo.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
           </ul>
         )}
       </CardContent>
