@@ -9,7 +9,7 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
+    //Hi
     const { data: todos, error } = await supabase
       .from("todos")
       .select("*")
