@@ -11,8 +11,8 @@ import { toast } from "sonner"
 
 interface Message {
   id: string
-  message: string
-  is_admin: boolean
+  content: string
+  sender_role: "user" | "admin"
   created_at: string
   sender_id: string
 }
@@ -77,6 +77,20 @@ export function SupportChat() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // First, check if current chat was closed by admin - if so, clear it
+      if (currentChat) {
+        const { data: chatCheck } = await supabase
+          .from("support_chats")
+          .select("status")
+          .eq("id", currentChat.id)
+          .single()
+        
+        if (chatCheck && chatCheck.status === "closed") {
+          setCurrentChat(null)
+          setMessages([])
+        }
+      }
+
       const { data: existingChats } = await supabase
         .from("support_chats")
         .select("*")
@@ -88,6 +102,11 @@ export function SupportChat() {
       if (existingChats && existingChats.length > 0) {
         setCurrentChat(existingChats[0])
       } else {
+        // No open chat - clear current chat and messages
+        setCurrentChat(null)
+        setMessages([])
+        
+        // Create new chat
         const { data: newChat, error } = await supabase
           .from("support_chats")
           .insert({ user_id: user.id, subject: "Support Request" })
@@ -132,8 +151,8 @@ export function SupportChat() {
       const { data: newMsg, error } = await supabase.from("support_messages").insert({
         chat_id: currentChat.id,
         sender_id: user.id,
-        message: message.trim(),
-        is_admin: false,
+        content: message.trim(),
+        sender_role: "user",
       }).select().single()
 
       if (error) throw error
@@ -194,16 +213,16 @@ export function SupportChat() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.is_admin ? "justify-start" : "justify-end"}`}
+                      className={`flex ${msg.sender_role === "admin" ? "justify-start" : "justify-end"}`}
                     >
                       <div
                         className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                          msg.is_admin
+                          msg.sender_role === "admin"
                             ? "bg-muted text-foreground"
                             : "bg-primary text-primary-foreground"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                         <p className="text-xs opacity-70 mt-1">
                           {new Date(msg.created_at).toLocaleTimeString([], {
                             hour: "2-digit",

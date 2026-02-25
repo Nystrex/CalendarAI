@@ -63,6 +63,9 @@ CREATE POLICY "Admins can manage all messages" ON support_messages
 -- Add phone_number column to profiles if not exists
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
 
+-- Add role column to profiles if not exists (needed for admin support)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user';
+
 -- Enable realtime for support tables
 ALTER PUBLICATION supabase_realtime ADD TABLE support_chats;
 ALTER PUBLICATION supabase_realtime ADD TABLE support_messages;

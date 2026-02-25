@@ -39,6 +39,20 @@ export function SupportChatWidget() {
       if (user) {
         setUserId(user.id)
         
+        // Check if existing chat was closed - clear if so
+        if (chatId) {
+          const { data: chatCheck } = await supabase
+            .from("support_chats")
+            .select("status")
+            .eq("id", chatId)
+            .single()
+          
+          if (chatCheck && chatCheck.status === "closed") {
+            setChatId(null)
+            setMessages([])
+          }
+        }
+        
         // Check for existing open chat
         const { data: existingChat } = await supabase
           .from("support_chats")
@@ -130,7 +144,7 @@ export function SupportChatWidget() {
   }
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !chatId || !userId) return
+    if (!newMessage.trim() || !chatId || !userId || sending) return
     setSending(true)
 
     const { error } = await supabase.from("support_messages").insert({
@@ -140,7 +154,9 @@ export function SupportChatWidget() {
       content: newMessage.trim(),
     })
 
-    if (!error) {
+    if (error) {
+      console.error("Send message error:", error)
+    } else {
       setNewMessage("")
       // Update chat's updated_at
       await supabase

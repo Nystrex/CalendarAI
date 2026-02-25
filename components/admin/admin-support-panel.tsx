@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Send, MessageCircle, User, Clock, CheckCircle, XCircle } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { toast } from "sonner"
 
 interface SupportChat {
   id: string
@@ -27,8 +28,8 @@ interface SupportMessage {
   id: string
   chat_id: string
   sender_id: string
-  is_admin: boolean
-  message: string
+  sender_role: "user" | "admin"
+  content: string
   created_at: string
 }
 
@@ -137,7 +138,7 @@ export function AdminSupportPanel() {
   }
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedChat) return
+    if (!newMessage.trim() || !selectedChat || sending) return
 
     setSending(true)
     try {
@@ -147,8 +148,8 @@ export function AdminSupportPanel() {
       const { data: sentMsg, error } = await supabase.from("support_messages").insert({
         chat_id: selectedChat.id,
         sender_id: user.id,
-        is_admin: true,
-        message: newMessage.trim(),
+        sender_role: "admin",
+        content: newMessage.trim(),
       }).select().single()
 
       if (error) throw error
@@ -159,8 +160,9 @@ export function AdminSupportPanel() {
       }
 
       setNewMessage("")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error)
+      toast.error(error?.message || "Failed to send message - check if you're an admin")
     } finally {
       setSending(false)
     }
@@ -283,16 +285,16 @@ export function AdminSupportPanel() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.is_admin ? "justify-end" : "justify-start"}`}
+                      className={`flex ${msg.sender_role === "admin" ? "justify-end" : "justify-start"}`}
                     >
                       <div
                         className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                          msg.is_admin
+                          msg.sender_role === "admin"
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted"
                         }`}
                       >
-                        <p className="text-sm">{msg.message}</p>
+                        <p className="text-sm">{msg.content}</p>
                         <p className="text-xs opacity-70 mt-1">
                           {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                         </p>
