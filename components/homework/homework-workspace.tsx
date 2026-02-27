@@ -1,13 +1,12 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -15,7 +14,6 @@ import { HomeworkChatSidebar } from "@/components/homework/homework-chat-sidebar
 import { 
   Send, 
   Loader2, 
-  Calendar, 
   Clock, 
   Calculator, 
   FileText, 
@@ -27,24 +25,25 @@ import {
   Check,
   Paperclip,
   X,
-  Eye,
-  Download
+  Download,
+  Image as ImageIcon,
+  Upload,
+  Sparkles,
+  BookOpen,
+  Lightbulb,
+  Code2,
+  PenLine,
 } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 import ReactMarkdown from "react-markdown"
 import { createClient } from "@/lib/supabase/client"
-import { formatDistanceToNow } from "date-fns"
 
-interface HomeworkWorkspaceProps {
-  userId: string
-  userAvatar?: string
-}
-
-interface Note {
-  id: string
-  title: string
-  content: string
-  updated_at: string
+// ── Attachment types sent to the API ──────────────────────────────────────────
+interface AttachedFile {
+  file: File
+  dataUrl: string        // for images: preview URL; for others: empty
+  base64: string         // raw base64 for sending to API
+  mimeType: string
 }
 
 interface QuickTask {
@@ -53,236 +52,184 @@ interface QuickTask {
   completed: boolean
 }
 
+// ── Suggestion chips shown on empty state ─────────────────────────────────────
+const SUGGESTIONS = [
+  { icon: Sparkles,   label: "Explain a concept",   text: "Can you explain "  },
+  { icon: BookOpen,   label: "Solve step by step",   text: "Help me solve this step by step: " },
+  { icon: PenLine,    label: "Review my essay",      text: "Please review my essay and give feedback:\n\n" },
+  { icon: Code2,      label: "Debug my code",        text: "Help me debug this code:\n\n```\n\n```" },
+  { icon: Lightbulb,  label: "Study tips",           text: "Give me study tips for " },
+]
+
+const ACCEPTED = ".pdf,.txt,.md,.csv,.py,.js,.ts,.json,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx"
+const MAX_MB = 15
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res((r.result as string).split(",")[1])
+    r.onerror = rej
+    r.readAsDataURL(file)
+  })
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(r.result as string)
+    r.onerror = rej
+    r.readAsDataURL(file)
+  })
+}
+
+async function processFiles(files: File[]): Promise<AttachedFile[]> {
+  const result: AttachedFile[] = []
+  for (const file of files) {
+    if (file.size > MAX_MB * 1024 * 1024) continue
+    const base64 = await readFileAsBase64(file)
+    const dataUrl = file.type.startsWith("image/") ? await readFileAsDataUrl(file) : ""
+    result.push({ file, dataUrl, base64, mimeType: file.type || "application/octet-stream" })
+  }
+  return result
+}
+
+interface HomeworkWorkspaceProps {
+  userId: string
+  userAvatar?: string
+}
+
 export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps) {
   const [conversationId, setConversationId] = useState<string>(uuidv4())
-  const [localInput, setLocalInput] = useState("")
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([])
-  const [notes, setNotes] = useState("")
-  const [quickTasks, setQuickTasks] = useState<QuickTask[]>([])
-  const [newTask, setNewTask] = useState("")
-  const [pomodoroTime, setPomodoroTime] = useState(25 * 60)
+  const [localInput, setLocalInput]         = useState("")
+  const [attached, setAttached]             = useState<AttachedFile[]>([])
+  const [isDragging, setIsDragging]         = useState(false)
+  const [previewFile, setPreviewFile]       = useState<AttachedFile | null>(null)
+  // tools panel
+  const [notes, setNotes]                   = useState("")
+  const [quickTasks, setQuickTasks]         = useState<QuickTask[]>([])
+  const [newTask, setNewTask]               = useState("")
+  const [pomodoroTime, setPomodoroTime]     = useState(25 * 60)
   const [isPomodoroRunning, setIsPomodoroRunning] = useState(false)
-  const [calcInput, setCalcInput] = useState("")
-  const [calcResult, setCalcResult] = useState("")
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [previewFile, setPreviewFile] = useState<File | null>(null)
-  const [previewContent, setPreviewContent] = useState<string>("")
-  const [showSidebar, setShowSidebar] = useState(true)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const pomodoroIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const [chatMessages, setChatMessages] = useState<any[]>([]); // Declare chatMessages variable
+  const [calcInput, setCalcInput]           = useState("")
+  const [calcResult, setCalcResult]         = useState("")
+
+  const scrollRef             = useRef<HTMLDivElement>(null)
+  const fileInputRef          = useRef<HTMLInputElement>(null)
+  const dropZoneRef           = useRef<HTMLDivElement>(null)
+  const pomodoroRef           = useRef<NodeJS.Timeout | null>(null)
+  const [refreshSidebar, setRefreshSidebar] = useState(0)
 
   const { messages, status, setMessages, sendMessage } = useChat({
-    id: conversationId,
-    api: "/api/homework/chat",
-    body: {
-      conversationId,
-      userId,
-    },
-    onError: (error) => {
-      console.error("[v0] Chat error:", error)
-    },
+    transport: {
+      async sendMessages({ messages: msgs, requestMetadata }) {
+        const body = {
+          messages: msgs,
+          conversationId,
+          userId,
+          ...(requestMetadata as object ?? {}),
+        }
+        const res = await fetch("/api/homework/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.message ?? "Request failed")
+        }
+        return res
+      },
+    } as any,
+    onError: (e) => console.error("[chat]", e),
+    onFinish: () => setRefreshSidebar(n => n + 1),
   })
 
   const isChatLoading = status === "streaming" || status === "submitted"
 
-  // Load upcoming events
+  // ── Auto-scroll ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const loadEvents = async () => {
-      if (!userId) return
-      const supabase = createClient()
-      const { data: events } = await supabase
-        .from("events")
-        .select("*")
-        .eq("user_id", userId)
-        .gte("start_time", new Date().toISOString())
-        .order("start_time", { ascending: true })
-        .limit(5)
-
-      if (events) setUpcomingEvents(events)
-    }
-    loadEvents()
-  }, [userId])
-
-  // Sync messages from useChat to chatMessages for display
-  // Only sync when messages come from AI SDK (have parts), not when manually loaded
-  useEffect(() => {
-    if (messages.length > 0) {
-      // Check if these are AI SDK messages (have parts) or database messages (have content)
-      const hasAiSdkFormat = messages.some((msg: any) => msg.parts)
-      if (hasAiSdkFormat) {
-        setChatMessages(messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          parts: msg.parts,
-          content: typeof msg.content === 'string' ? msg.content : 
-            msg.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
-        })))
-      }
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages])
 
-  // Auto-scroll chat
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [chatMessages])
-
-  // Pomodoro timer
+  // ── Pomodoro timer ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (isPomodoroRunning) {
-      pomodoroIntervalRef.current = setInterval(() => {
+      pomodoroRef.current = setInterval(() => {
         setPomodoroTime((prev) => {
-          if (prev <= 1) {
-            setIsPomodoroRunning(false)
-            return 25 * 60
-          }
+          if (prev <= 1) { setIsPomodoroRunning(false); return 25 * 60 }
           return prev - 1
         })
       }, 1000)
     } else {
-      if (pomodoroIntervalRef.current) {
-        clearInterval(pomodoroIntervalRef.current)
-      }
+      if (pomodoroRef.current) clearInterval(pomodoroRef.current)
     }
-    return () => {
-      if (pomodoroIntervalRef.current) {
-        clearInterval(pomodoroIntervalRef.current)
-      }
-    }
+    return () => { if (pomodoroRef.current) clearInterval(pomodoroRef.current) }
   }, [isPomodoroRunning])
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  // ── Drag-and-drop handlers ─────────────────────────────────────────────────
+  const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    if (!localInput.trim() && uploadedFiles.length === 0) return
-    
-    // Process files and send with content
-    const processFiles = async () => {
-      const fileContents: { name: string; content: string; type: string }[] = []
-      const pdfFiles: string[] = []
-      
-      for (const file of uploadedFiles) {
-        try {
-          // Skip PDFs - they contain binary data that breaks database storage
-          if (file.type === 'application/pdf') {
-            pdfFiles.push(file.name)
-            continue
-          }
-          
-          const reader = new FileReader()
-          const content = await new Promise<string>((resolve, reject) => {
-            reader.onload = (e) => {
-              let result = e.target?.result as string
-              // Sanitize content to remove null bytes and invalid Unicode
-              result = result.replace(/\\0/g, "").replace(/[\uFFFD]/g, "?")
-              resolve(result)
-            }
-            reader.onerror = reject
-            
-            if (file.type.startsWith('image/')) {
-              reader.readAsDataURL(file)
-            } else {
-              reader.readAsText(file)
-            }
-          })
-          
-          fileContents.push({
-            name: file.name,
-            content: content.slice(0, 5000), // Limit content size
-            type: file.type
-          })
-        } catch (error) {
-          console.error(`Error reading file ${file.name}:`, error)
-        }
-      }
-      
-      // Build message with file content
-      let messageText = localInput
-      
-      if (fileContents.length > 0 || pdfFiles.length > 0) {
-        const textFileInfo = fileContents.map(f => `\n\n[FILE: ${f.name}]\n${f.content}`).join("")
-        const pdfFileInfo = pdfFiles.length > 0 ? `\n\n[FILES ATTACHED - PDF (cannot be processed inline): ${pdfFiles.join(", ")}]` : ""
-        
-        if (!messageText) {
-          messageText = "Please analyze these files:"
-        }
-        messageText += textFileInfo + pdfFileInfo
-      }
-      
-      sendMessage({ content: messageText })
-      setLocalInput("")
-      setUploadedFiles([])
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+    setIsDragging(true)
+  }, [])
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    if (!dropZoneRef.current?.contains(e.relatedTarget as Node)) setIsDragging(false)
+  }, [])
+
+  const onDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    const processed = await processFiles(files)
+    setAttached(prev => [...prev, ...processed])
+  }, [])
+
+  // ── File input / clipboard paste ──────────────────────────────────────────
+  const onFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    const processed = await processFiles(files)
+    setAttached(prev => [...prev, ...processed])
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }, [])
+
+  const onPaste = useCallback(async (e: React.ClipboardEvent) => {
+    const imageItems = Array.from(e.clipboardData.items).filter(i => i.type.startsWith("image/"))
+    if (imageItems.length === 0) return
+    e.preventDefault()
+    const files = imageItems.map(i => i.getAsFile()).filter(Boolean) as File[]
+    const processed = await processFiles(files)
+    setAttached(prev => [...prev, ...processed])
+  }, [])
+
+  // ── Send message ──────────────────────────────────────────────────────────
+  const handleSend = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!localInput.trim() && attached.length === 0) return
+
+    const parts: any[] = []
+    if (localInput.trim()) parts.push({ type: "text", text: localInput.trim() })
+    for (const af of attached) {
+      if (af.mimeType.startsWith("image/")) {
+        parts.push({ type: "image", data: af.base64, mimeType: af.mimeType, name: af.file.name })
+      } else {
+        parts.push({ type: "file",  data: af.base64, mimeType: af.mimeType, name: af.file.name })
       }
     }
-    
-    processFiles()
-  }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const validFiles = files.filter(file => {
-      // Limit file size to 10MB and accept common document/image types
-      const maxSize = 10 * 1024 * 1024
-      const validTypes = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg', 'image/webp', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-      return file.size <= maxSize && (validTypes.includes(file.type) || file.name.match(/\.(pdf|txt|png|jpg|jpeg|webp|doc|docx)$/i))
-    })
-    setUploadedFiles(prev => [...prev, ...validFiles])
-  }
+    setLocalInput("")
+    setAttached([])
+    await sendMessage({ parts } as any)
+  }, [localInput, attached, sendMessage])
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const openFile = (file: File) => {
-    setPreviewFile(file)
-    
-    // Read file content based on type
-    const reader = new FileReader()
-    
-    if (file.type === 'application/pdf') {
-      // For PDFs, we'll show a download button and use a PDF viewer
-      setPreviewContent("")
-    } else if (file.type.startsWith('image/')) {
-      // For images, read as data URL
-      reader.onload = (e) => {
-        setPreviewContent(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-      // For text files
-      reader.onload = (e) => {
-        setPreviewContent(e.target?.result as string)
-      }
-      reader.readAsText(file)
-    } else {
-      // For other files (docx, etc.), show a message
-      setPreviewContent(`Cannot preview ${file.name}. Please download to view.`)
-    }
-  }
-
-  const downloadFile = (file: File) => {
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = file.name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
+  // ── Conversation management ───────────────────────────────────────────────
   const createNewConversation = () => {
     setConversationId(uuidv4())
     setMessages([])
-    setChatMessages([]); // Reset chatMessages when creating a new conversation
+    setAttached([])
   }
 
   const selectConversation = async (convId: string) => {
-    // Load messages first
     const supabase = createClient()
     const { data, error } = await supabase
       .from("homework_chat_history")
@@ -292,279 +239,282 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
       .order("created_at", { ascending: true })
 
     if (!error && data) {
-      const loadedMessages = data.map((msg: any) => ({
+      setMessages(data.map((msg: any) => ({
         id: msg.id || uuidv4(),
         role: msg.role as "user" | "assistant",
-        content: msg.content,
-      }))
-      // Set messages before changing conversation ID
-      setMessages(loadedMessages)
-      setChatMessages(loadedMessages); // Update chatMessages when selecting a conversation
+        parts: [{ type: "text", text: msg.content }],
+      })))
     }
-    
-    // Change conversation ID after messages are loaded
     setConversationId(convId)
   }
 
+  // ── Tools helpers ─────────────────────────────────────────────────────────
   const addQuickTask = () => {
     if (!newTask.trim()) return
-    setQuickTasks([...quickTasks, { id: uuidv4(), text: newTask, completed: false }])
+    setQuickTasks(prev => [...prev, { id: uuidv4(), text: newTask, completed: false }])
     setNewTask("")
-  }
-
-  const toggleTask = (id: string) => {
-    setQuickTasks(quickTasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ))
-  }
-
-  const removeTask = (id: string) => {
-    setQuickTasks(quickTasks.filter(task => task.id !== id))
   }
 
   const calculateExpression = () => {
     try {
-      // Basic calculator using Function constructor (safe for simple math)
+      // eslint-disable-next-line no-new-func
       const result = Function(`'use strict'; return (${calcInput})`)()
-      setCalcResult(result.toString())
-    } catch {
-      setCalcResult("Error")
-    }
+      setCalcResult(String(result))
+    } catch { setCalcResult("Error") }
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+
+  const downloadFile = (af: AttachedFile) => {
+    const url = URL.createObjectURL(af.file)
+    const a = document.createElement("a")
+    a.href = url; a.download = af.file.name
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-background">
-      {/* Chat Sidebar */}
+    <div className="flex h-full bg-background overflow-hidden">
+      {/* Conversation sidebar */}
       <HomeworkChatSidebar
         userId={userId}
         currentConversationId={conversationId}
         onCreateNew={createNewConversation}
         onSelectConversation={selectConversation}
-        onDeleteConversation={(convId) => {
-          if (convId === conversationId) {
-            createNewConversation()
-          }
-        }}
-        refreshTrigger={chatMessages.length}
+        onDeleteConversation={(id) => { if (id === conversationId) createNewConversation() }}
+        refreshTrigger={refreshSidebar}
       />
 
-      {/* Main Workspace */}
-      <div className="flex-1 overflow-hidden flex flex-col bg-background">
-        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3 gap-4 p-6">
-          {/* Left Column - AI Chat */}
-          <Card className="lg:col-span-2 flex flex-col h-full overflow-hidden">
-            <CardHeader className="border-b shrink-0">
+      {/* Main workspace */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+
+          {/* ── Chat column (2/3) ── */}
+          <Card
+            ref={dropZoneRef}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`lg:col-span-2 flex flex-col overflow-hidden relative transition-colors ${
+              isDragging ? "border-primary bg-primary/5" : ""
+            }`}
+          >
+            {/* Drag overlay */}
+            {isDragging && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-primary/10 backdrop-blur-sm rounded-lg pointer-events-none">
+                <Upload className="h-12 w-12 text-primary animate-bounce" />
+                <p className="text-lg font-semibold text-primary">Drop files to attach</p>
+                <p className="text-sm text-muted-foreground">Images, PDFs, docs, code files — up to {MAX_MB} MB each</p>
+              </div>
+            )}
+
+            {/* Chat header */}
+            <CardHeader className="border-b shrink-0 py-3">
               <div className="flex items-center gap-3">
-                <Avatar className="bg-primary">
-                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                    C
-                  </AvatarFallback>
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-bold text-sm">AI</AvatarFallback>
                 </Avatar>
-                <div>
-                  <CardTitle>CalendarAI Assistant</CardTitle>
-                  <CardDescription>Ask questions about your assignments and get study help</CardDescription>
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-base">CalendarAI Tutor</CardTitle>
+                  <p className="text-xs text-muted-foreground truncate">Drag files · paste images · ask anything</p>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 overflow-auto p-4 min-h-0">
-              <div className="space-y-4" ref={scrollRef}>
-                {chatMessages.length === 0 ? (
-                  <div className="flex flex-col items-center py-8 text-center text-muted-foreground">
-                    <Brain className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Ask me anything about your homework or studying</p>
+
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                  <div className="rounded-full bg-primary/10 p-5 mb-4">
+                    <Brain className="h-10 w-10 text-primary" />
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {chatMessages.map((message) => (
-                      <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                        {message.role === "assistant" && (
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-                              <Calendar className="h-4 w-4" />
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        <div
-                          className={`max-w-lg rounded-lg px-4 py-3 ${
-                            message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-                          }`}
-                        >
-                          <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                            {/* Handle both AI SDK parts format and simple content string */}
-                            {message.parts ? (
-                              message.parts.map((part: any, index: number) => {
-                                if (part.type === "text") {
-                                  return (
-                                    <div key={index}>
-                                      <ReactMarkdown
-                                        components={{
-                                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                          ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
-                                          ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
-                                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                                          code: ({ children }) => <code className="bg-background/50 px-1 rounded text-xs">{children}</code>,
-                                        }}
-                                      >
-                                        {part.text}
-                                      </ReactMarkdown>
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })
-                            ) : message.content ? (
-                              <ReactMarkdown
-                                components={{
-                                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                  ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
-                                  ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
-                                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                                  code: ({ children }) => <code className="bg-background/50 px-1 rounded text-xs">{children}</code>,
-                                }}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            ) : null}
-                          </div>
-                        </div>
-                        {message.role === "user" && userAvatar && (
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <img src={userAvatar || "/placeholder.svg"} alt="User" />
-                          </Avatar>
-                        )}
-                      </div>
+                  <h3 className="text-lg font-semibold mb-1">Your AI Study Tutor</h3>
+                  <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                    Ask questions, upload homework photos, drop PDFs, or paste screenshots — I'll analyze and guide you step by step.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s.label}
+                        onClick={() => setLocalInput(s.text)}
+                        className="flex items-center gap-2 text-left p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                      >
+                        <s.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary shrink-0" />
+                        <span className="text-sm font-medium">{s.label}</span>
+                      </button>
                     ))}
                   </div>
-                )}
-                {isChatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted rounded-lg px-4 py-3">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-            {/* Input Section - Outside CardContent */}
-            <div className="border-t p-4 space-y-3 shrink-0 bg-card">
-              {uploadedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {uploadedFiles.map((file, index) => {
-                    // Determine icon based on file type
-                    const getFileIcon = () => {
-                      if (file.type.startsWith('image/')) {
-                        return <Eye className="h-3 w-3" />
-                      } else if (file.type === 'application/pdf') {
-                        return <FileText className="h-3 w-3 text-red-500" />
-                      } else if (file.type === 'text/plain') {
-                        return <FileText className="h-3 w-3 text-blue-500" />
-                      } else {
-                        return <FileText className="h-3 w-3" />
-                      }
-                    }
-                    
-                    return (
-                      <Badge 
-                        key={index} 
-                        variant="secondary" 
-                        className="flex items-center gap-2 cursor-pointer hover:bg-accent/80 transition-colors"
-                        onClick={() => openFile(file)}
-                      >
-                        {getFileIcon()}
-                        <span className="truncate max-w-[150px] text-xs">
-                          {file.name}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            downloadFile(file)
-                          }}
-                          className="ml-1 hover:opacity-70 transition-opacity"
-                          title="Download"
-                        >
-                          <Download className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeFile(index)
-                          }}
-                          className="ml-1 hover:opacity-70 transition-opacity"
-                          title="Remove"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    )
-                  })}
-                  </div>
-                )}
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <textarea
-                    value={localInput}
-                    onChange={(e) => setLocalInput(e.target.value)}
-                    onPaste={(e) => {
-                      // Handle image paste
-                      const items = e.clipboardData?.items || []
-                      for (let i = 0; i < items.length; i++) {
-                        if (items[i].type.indexOf('image') !== -1) {
-                          const file = items[i].getAsFile()
-                          if (file) {
-                            e.preventDefault()
-                            handleFileSelect({ target: { files: [file] } } as any)
+                  <p className="text-xs text-muted-foreground mt-6 flex items-center gap-1">
+                    <Upload className="h-3 w-3" /> You can also drag &amp; drop files anywhere on this panel
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {messages.map((msg) => (
+                    <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      {msg.role === "assistant" && (
+                        <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">AI</AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div className={`max-w-[75%] flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                        {msg.role === "assistant" && (
+                          <span className="text-xs font-medium text-muted-foreground px-1">CalendarAI Tutor</span>
+                        )}
+                        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        }`}>
+                          {(msg as any).parts ? (
+                            (msg as any).parts.map((part: any, i: number) => {
+                              if (part.type === "text") {
+                                return (
+                                  <div key={i} className="prose prose-sm dark:prose-invert max-w-none">
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                        code: ({ children }) => <code className="bg-background/50 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>,
+                                        pre: ({ children }) => <pre className="bg-background/50 p-3 rounded-lg overflow-x-auto my-2 text-xs">{children}</pre>,
+                                        h1: ({ children }) => <h1 className="font-bold text-lg mt-3 mb-1">{children}</h1>,
+                                        h2: ({ children }) => <h2 className="font-bold text-base mt-3 mb-1">{children}</h2>,
+                                        h3: ({ children }) => <h3 className="font-semibold mt-2 mb-1">{children}</h3>,
+                                      }}
+                                    >{part.text}</ReactMarkdown>
+                                  </div>
+                                )
+                              }
+                              if (part.type === "image" && part.dataUrl) {
+                                return (
+                                  <img key={i} src={part.dataUrl} alt="attached" className="rounded-lg max-h-48 mt-2 object-contain" />
+                                )
+                              }
+                              return null
+                            })
+                          ) : (msg as any).content ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <ReactMarkdown>{(msg as any).content}</ReactMarkdown>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                      {msg.role === "user" && (
+                        <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                          {userAvatar
+                            ? <AvatarImage src={userAvatar} alt="You" />
+                            : <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">You</AvatarFallback>
                           }
-                        }
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.ctrlKey) {
-                        handleSendMessage(e as any)
-                      }
-                    }}
-                    placeholder="Ask a question, describe your homework, or paste an image..."
-                    disabled={isChatLoading}
-                    className="flex-1 px-4 py-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 resize-none max-h-32"
-                    rows={3}
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.doc,.docx"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
+                        </Avatar>
+                      )}
+                    </div>
+                  ))}
+                  {isChatLoading && (
+                    <div className="flex gap-3 justify-start">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">AI</AvatarFallback>
+                      </Avatar>
+                      <div className="bg-muted rounded-2xl px-4 py-3">
+                        <div className="flex gap-1.5 items-center">
+                          <span className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="h-2 w-2 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Input area */}
+            <div className="border-t p-3 shrink-0 space-y-2 bg-card">
+              {/* Attached file chips */}
+              {attached.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {attached.map((af, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-lg border bg-muted text-xs cursor-pointer hover:bg-accent transition-colors group"
+                      onClick={() => setPreviewFile(af)}
+                    >
+                      {af.mimeType.startsWith("image/") ? (
+                        <img src={af.dataUrl} alt={af.file.name} className="h-6 w-6 rounded object-cover shrink-0" />
+                      ) : af.mimeType === "application/pdf" ? (
+                        <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                      )}
+                      <span className="truncate max-w-[120px] font-medium">{af.file.name}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setAttached(prev => prev.filter((_, i) => i !== idx)) }}
+                        className="ml-0.5 opacity-50 hover:opacity-100 hover:text-destructive transition-all"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Textarea + buttons */}
+              <form onSubmit={handleSend} className="flex gap-2 items-end">
+                <textarea
+                  value={localInput}
+                  onChange={(e) => setLocalInput(e.target.value)}
+                  onPaste={onPaste}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(e as any) }
+                  }}
+                  placeholder="Ask a question, drop a file, or paste a screenshot… (Enter to send, Shift+Enter for newline)"
+                  disabled={isChatLoading}
+                  rows={2}
+                  className="flex-1 resize-none px-3 py-2.5 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 max-h-36"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept={ACCEPTED}
+                  onChange={onFileInputChange}
+                  className="hidden"
+                />
+                <div className="flex flex-col gap-1">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
+                    className="h-9 w-9"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isChatLoading}
-                    title="Attach files"
+                    title="Attach files (or drag & drop)"
                   >
                     <Paperclip className="h-4 w-4" />
                   </Button>
-                  <Button type="submit" disabled={isChatLoading || (!localInput.trim() && uploadedFiles.length === 0)} size="icon">
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-9 w-9"
+                    disabled={isChatLoading || (!localInput.trim() && attached.length === 0)}
+                  >
                     {isChatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   </Button>
-                </form>
-              </div>
-            </Card>
+                </div>
+              </form>
+            </div>
+          </Card>
 
-          {/* Right Column - Additional Features */}
-          <div className="flex flex-col gap-4">
+          {/* ── Tools column (1/3) ── */}
+          <div className="flex flex-col gap-4 overflow-y-auto">
             {/* Quick Tasks */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Check className="h-4 w-4" />
-                  Quick Tasks
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Quick Tasks
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -572,61 +522,62 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
                   <Input
                     value={newTask}
                     onChange={(e) => setNewTask(e.target.value)}
-                    placeholder="Add a quick task..."
+                    placeholder="Add a task..."
                     onKeyDown={(e) => e.key === "Enter" && addQuickTask()}
-                    className="text-sm"
+                    className="text-sm h-8"
                   />
-                  <Button size="icon" variant="outline" onClick={addQuickTask}>
-                    <Plus className="h-4 w-4" />
+                  <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={addQuickTask}>
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-40 overflow-y-auto">
                   {quickTasks.map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 text-sm">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={() => toggleTask(task.id)}
+                    <div key={task.id} className="flex items-center gap-2 text-sm group">
+                      <button
+                        onClick={() => setQuickTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))}
+                        className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          task.completed ? "bg-primary border-primary" : "border-muted-foreground hover:border-primary"
+                        }`}
                       >
-                        <div className={`h-4 w-4 rounded border-2 flex items-center justify-center ${task.completed ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                          {task.completed && <Check className="h-3 w-3 text-primary-foreground" />}
-                        </div>
-                      </Button>
-                      <span className={task.completed ? "line-through text-muted-foreground" : ""}>{task.text}</span>
+                        {task.completed && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                      </button>
+                      <span className={`flex-1 ${task.completed ? "line-through text-muted-foreground" : ""}`}>{task.text}</span>
+                      <button
+                        onClick={() => setQuickTasks(prev => prev.filter(t => t.id !== task.id))}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Focus Timer */}
+            {/* Pomodoro */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Focus Timer
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> Focus Timer
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-center">
-                  <div className="text-4xl font-bold tabular-nums">{formatTime(pomodoroTime)}</div>
+                  <span className="text-4xl font-bold tabular-nums tracking-tight">{formatTime(pomodoroTime)}</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={() => setIsPomodoroRunning(!isPomodoroRunning)}
+                    className="flex-1"
+                    onClick={() => setIsPomodoroRunning(r => !r)}
                   >
-                    {isPomodoroRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isPomodoroRunning ? <Pause className="h-4 w-4 mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                    {isPomodoroRunning ? "Pause" : "Start"}
                   </Button>
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => {
-                      setIsPomodoroRunning(false)
-                      setPomodoroTime(25 * 60)
-                    }}
+                    onClick={() => { setIsPomodoroRunning(false); setPomodoroTime(25 * 60) }}
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
@@ -634,47 +585,45 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
               </CardContent>
             </Card>
 
-            {/* Quick Calculator */}
+            {/* Calculator */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Calculator
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calculator className="h-4 w-4" /> Calculator
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Input
                   value={calcInput}
                   onChange={(e) => setCalcInput(e.target.value)}
-                  placeholder="Enter expression (e.g., 2+2*3)"
+                  placeholder="e.g. 2 + 2 * 3"
                   onKeyDown={(e) => e.key === "Enter" && calculateExpression()}
-                  className="text-sm font-mono"
+                  className="text-sm font-mono h-8"
                 />
-                <Button onClick={calculateExpression} variant="outline" className="w-full bg-transparent">
+                <Button onClick={calculateExpression} variant="outline" className="w-full h-8 text-sm">
                   Calculate
                 </Button>
                 {calcResult && (
-                  <div className="text-center p-2 bg-muted rounded text-lg font-semibold">
+                  <div className="text-center p-2 bg-muted rounded-lg text-xl font-bold tabular-nums">
                     = {calcResult}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Quick Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Quick Notes
+            {/* Notes */}
+            <Card className="flex-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText className="h-4 w-4" /> Quick Notes
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Jot down quick notes..."
-                  className="min-h-[100px] text-sm"
+                  placeholder="Jot things down while you study…"
+                  className="min-h-[120px] text-sm resize-none"
                 />
               </CardContent>
             </Card>
@@ -682,80 +631,52 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
         </div>
       </div>
 
-      {/* File Preview Dialog */}
-      <Dialog 
-        open={!!previewFile} 
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreviewFile(null)
-            setPreviewContent("")
-          }
-        }}
-      >
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      {/* ── File preview dialog ── */}
+      <Dialog open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null) }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                <span className="truncate">{previewFile?.name}</span>
+            <DialogTitle className="flex items-center justify-between gap-2 pr-6">
+              <div className="flex items-center gap-2 min-w-0">
+                {previewFile?.mimeType.startsWith("image/")
+                  ? <ImageIcon className="h-4 w-4 shrink-0" />
+                  : <FileText className="h-4 w-4 shrink-0" />}
+                <span className="truncate text-sm">{previewFile?.file.name}</span>
               </div>
-              <Button 
+              <Button
+                variant="outline" size="sm" className="shrink-0"
                 onClick={() => previewFile && downloadFile(previewFile)}
-                variant="outline"
-                size="sm"
-                className="shrink-0"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Download
               </Button>
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="flex-1 w-full">
+          <ScrollArea className="flex-1">
             <div className="p-4">
-              {previewFile?.type === 'application/pdf' ? (
-                <div className="space-y-4">
-                  <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg p-8 text-center">
-                    <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-lg font-medium mb-2">{previewFile.name}</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      PDF • {(previewFile.size / 1024).toFixed(1)} KB
-                    </p>
-                    <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4">
-                      PDF files cannot be previewed inline. Download to view the full document.
-                    </p>
-                    <Button onClick={() => previewFile && downloadFile(previewFile)} size="lg">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
-                    </Button>
-                  </div>
-                </div>
-              ) : previewFile?.type.startsWith('image/') ? (
-                <div className="flex flex-col items-center gap-4">
-                  <img 
-                    src={previewContent || "/placeholder.svg"} 
-                    alt={previewFile.name}
-                    className="max-w-full max-h-[60vh] rounded-lg shadow-lg object-contain"
-                  />
+              {previewFile?.mimeType.startsWith("image/") ? (
+                <img
+                  src={previewFile.dataUrl}
+                  alt={previewFile.file.name}
+                  className="max-w-full rounded-lg shadow-md object-contain mx-auto"
+                />
+              ) : previewFile?.mimeType === "application/pdf" ? (
+                <div className="text-center py-10 space-y-3">
+                  <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+                  <p className="font-medium">{previewFile.file.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {previewFile.name} • {(previewFile.size / 1024).toFixed(1)} KB
+                    PDF · {(previewFile.file.size / 1024).toFixed(1)} KB · The AI will extract and read its text
                   </p>
-                </div>
-              ) : previewFile?.type === 'text/plain' || previewFile?.name.endsWith('.txt') ? (
-                <div className="rounded-lg border bg-muted/30 p-6">
-                  <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
-                    {previewContent}
-                  </pre>
+                  <Button onClick={() => previewFile && downloadFile(previewFile)}>
+                    <Download className="h-4 w-4 mr-2" /> Download PDF
+                  </Button>
                 </div>
               ) : (
-                <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/20 rounded-lg p-8 text-center">
-                  <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-lg font-medium mb-2">{previewFile?.name}</p>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {previewFile?.type || 'Unknown file type'} • {((previewFile?.size || 0) / 1024).toFixed(1)} KB
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4">
-                    This file type cannot be previewed. Download to view the content.
-                  </p>
+                <div className="text-center py-10 space-y-3">
+                  <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+                  <p className="font-medium">{previewFile?.file.name}</p>
+                  <p className="text-sm text-muted-foreground">{previewFile?.mimeType} · {((previewFile?.file.size ?? 0) / 1024).toFixed(1)} KB</p>
+                  <Button onClick={() => previewFile && downloadFile(previewFile)}>
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </Button>
                 </div>
               )}
             </div>
