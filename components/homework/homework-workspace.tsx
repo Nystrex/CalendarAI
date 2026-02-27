@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -121,26 +122,12 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
   const [refreshSidebar, setRefreshSidebar] = useState(0)
 
   const { messages, status, setMessages, sendMessage } = useChat({
-    transport: {
-      async sendMessages({ messages: msgs, requestMetadata }) {
-        const body = {
-          messages: msgs,
-          conversationId,
-          userId,
-          ...(requestMetadata as object ?? {}),
-        }
-        const res = await fetch("/api/homework/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.message ?? "Request failed")
-        }
-        return res
-      },
-    } as any,
+    transport: new DefaultChatTransport({
+      api: "/api/homework/chat",
+      prepareSendMessagesRequest: ({ messages: msgs, body: bodyExtra }) => ({
+        body: { messages: msgs, conversationId, userId, ...((bodyExtra as object) ?? {}) },
+      }),
+    }),
     onError: (e) => console.error("[chat]", e),
     onFinish: () => setRefreshSidebar(n => n + 1),
   })
@@ -207,19 +194,23 @@ export function HomeworkWorkspace({ userId, userAvatar }: HomeworkWorkspaceProps
     e.preventDefault()
     if (!localInput.trim() && attached.length === 0) return
 
-    const parts: any[] = []
-    if (localInput.trim()) parts.push({ type: "text", text: localInput.trim() })
+    const fileParts: any[] = []
     for (const af of attached) {
       if (af.mimeType.startsWith("image/")) {
-        parts.push({ type: "image", data: af.base64, mimeType: af.mimeType, name: af.file.name })
+        fileParts.push({ type: "image", data: af.base64, mimeType: af.mimeType, name: af.file.name })
       } else {
-        parts.push({ type: "file",  data: af.base64, mimeType: af.mimeType, name: af.file.name })
+        fileParts.push({ type: "file", data: af.base64, mimeType: af.mimeType, name: af.file.name })
       }
     }
 
+    const text = localInput.trim() || (attached.length > 0 ? "Please analyze the attached file(s)." : "")
     setLocalInput("")
     setAttached([])
-    await sendMessage({ parts } as any)
+
+    await sendMessage(
+      { text },
+      { body: { fileParts: fileParts.length > 0 ? fileParts : undefined } }
+    )
   }, [localInput, attached, sendMessage])
 
   // ── Conversation management ───────────────────────────────────────────────

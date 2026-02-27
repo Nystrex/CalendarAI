@@ -82,17 +82,50 @@ async function buildCoreMessages(messages: IncomingMessage[]) {
   return result
 }
 
+// ── Normalise AI SDK UIMessage → IncomingMessage ──────────────────────────────
+function normaliseMessages(raw: any[]): IncomingMessage[] {
+  return raw.map((msg) => {
+    // Already in our format
+    if (msg.parts && Array.isArray(msg.parts)) {
+      return {
+        role: msg.role,
+        parts: msg.parts.map((p: any) => {
+          if (p.type === "text") return { type: "text", text: p.text ?? "" } as TextPart
+          if (p.type === "image") return p as ImagePart
+          if (p.type === "file")  return p as FilePart
+          return { type: "text", text: "" } as TextPart
+        }),
+      } as IncomingMessage
+    }
+    // Old format with content string
+    return {
+      role: msg.role,
+      parts: [{ type: "text", text: msg.content ?? "" }],
+    } as IncomingMessage
+  })
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { messages, conversationId, userId } = body as {
-      messages: IncomingMessage[]
+    const { messages: rawMessages, conversationId, userId, fileParts } = body as {
+      messages: any[]
       conversationId: string
       userId: string
+      fileParts?: (ImagePart | FilePart)[]
     }
 
-    if (!userId || !messages?.length) {
+    if (!userId || !rawMessages?.length) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 })
+    }
+
+    // Normalise messages and inject any fileParts into the last user message
+    const messages = normaliseMessages(rawMessages)
+    if (fileParts?.length) {
+      const last = messages[messages.length - 1]
+      if (last?.role === "user") {
+        last.parts = [...last.parts, ...fileParts]
+      }
     }
 
     const supabase = await createClient()
