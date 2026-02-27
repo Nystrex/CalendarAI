@@ -140,6 +140,9 @@ export interface Database {
           reminder_minutes: number | null
           provider: string
           provider_event_id: string | null
+          recurrence_rule: string | null
+          recurrence_end_date: string | null
+          recurrence_parent_id: string | null
           created_at: string
           updated_at: string
         }
@@ -156,6 +159,9 @@ export interface Database {
           reminder_minutes?: number | null
           provider?: string
           provider_event_id?: string | null
+          recurrence_rule?: string | null
+          recurrence_end_date?: string | null
+          recurrence_parent_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -172,6 +178,9 @@ export interface Database {
           reminder_minutes?: number | null
           provider?: string
           provider_event_id?: string | null
+          recurrence_rule?: string | null
+          recurrence_end_date?: string | null
+          recurrence_parent_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -244,6 +253,168 @@ export interface Database {
           entity_id?: string
           changes?: Json | null
           created_at?: string
+        }
+      }
+
+      school_courses: {
+        Row: {
+          id: string
+          user_id: string
+          code: string
+          name: string
+          term: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          code: string
+          name: string
+          term?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          code?: string
+          name?: string
+          term?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      school_items: {
+        Row: {
+          id: string
+          user_id: string
+          course_id: string
+          item_type: string
+          title: string
+          description: string | null
+          due_at: string | null
+          points_possible: number | null
+          weight_percent: number | null
+          is_completed: boolean
+          event_id: string | null
+          reminder_1_minutes: number
+          reminder_2_minutes: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          course_id: string
+          item_type: string
+          title: string
+          description?: string | null
+          due_at?: string | null
+          points_possible?: number | null
+          weight_percent?: number | null
+          is_completed?: boolean
+          event_id?: string | null
+          reminder_1_minutes?: number
+          reminder_2_minutes?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          course_id?: string
+          item_type?: string
+          title?: string
+          description?: string | null
+          due_at?: string | null
+          points_possible?: number | null
+          weight_percent?: number | null
+          is_completed?: boolean
+          event_id?: string | null
+          reminder_1_minutes?: number
+          reminder_2_minutes?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      grade_categories: {
+        Row: {
+          id: string
+          user_id: string
+          course_id: string
+          name: string
+          weight_percent: number
+          drop_lowest: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          course_id: string
+          name: string
+          weight_percent: number
+          drop_lowest?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          course_id?: string
+          name?: string
+          weight_percent?: number
+          drop_lowest?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+
+      grade_entries: {
+        Row: {
+          id: string
+          user_id: string
+          course_id: string
+          category_id: string | null
+          item_id: string | null
+          title: string | null
+          score: number | null
+          out_of: number | null
+          graded_at: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          course_id: string
+          category_id?: string | null
+          item_id?: string | null
+          title?: string | null
+          score?: number | null
+          out_of?: number | null
+          graded_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          course_id?: string
+          category_id?: string | null
+          item_id?: string | null
+          title?: string | null
+          score?: number | null
+          out_of?: number | null
+          graded_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
     }

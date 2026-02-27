@@ -57,7 +57,7 @@ interface Message {
 
 type ChatFilter = "all" | "open" | "closed" | "unread" | "urgent"
 
-export function AdminSupportPanel() {
+export function AdminSupportPanelV2() {
   const [chats, setChats] = useState<Chat[]>([])
   const [filteredChats, setFilteredChats] = useState<Chat[]>([])
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null)
@@ -348,53 +348,49 @@ export function AdminSupportPanel() {
   }
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-3 gap-4 min-h-[600px]">
-      {/* Chat List — hidden on mobile when a chat is selected */}
-      <Card className={`lg:col-span-1 flex flex-col ${selectedChat ? "hidden lg:flex" : "flex"}`}>
-        <CardHeader className="pb-3 shrink-0">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <MessageCircle className="h-4 w-4" />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px]">
+      {/* Chat List */}
+      <Card className="lg:col-span-1 flex flex-col">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MessageCircle className="h-5 w-5" />
             Support Tickets
             {chats.filter(c => c.status === "open" && (c.unread_count || 0) > 0).length > 0 && (
-              <Badge variant="destructive" className="ml-auto text-xs">
+              <Badge variant="destructive" className="ml-auto">
                 {chats.filter(c => c.status === "open" && (c.unread_count || 0) > 0).length}
               </Badge>
             )}
           </CardTitle>
-
+          
+          {/* Search */}
           <div className="relative mt-2">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className="pl-8"
             />
           </div>
-
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {(["all", "open", "unread", "urgent", "closed"] as ChatFilter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
-                  filter === f
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border hover:bg-accent"
-                }`}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
+          
+          {/* Filters */}
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as ChatFilter)} className="mt-2">
+            <TabsList className="grid grid-cols-5 h-8">
+              <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+              <TabsTrigger value="open" className="text-xs">Open</TabsTrigger>
+              <TabsTrigger value="unread" className="text-xs">Unread</TabsTrigger>
+              <TabsTrigger value="urgent" className="text-xs">Urgent</TabsTrigger>
+              <TabsTrigger value="closed" className="text-xs">Closed</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
-
+        
         <CardContent className="p-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-[calc(100vh-24rem)] min-h-[300px]">
+          <ScrollArea className="h-[500px]">
             {loading ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">Loading...</div>
+              <div className="p-4 text-center text-muted-foreground">Loading...</div>
             ) : filteredChats.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
+              <div className="p-4 text-center text-muted-foreground">
                 {searchQuery ? "No chats match your search" : "No support tickets"}
               </div>
             ) : (
@@ -403,30 +399,30 @@ export function AdminSupportPanel() {
                   <button
                     key={chat.id}
                     onClick={() => setSelectedChat(chat)}
-                    className={`w-full p-3 text-left hover:bg-accent/50 transition-colors ${
+                    className={`w-full p-4 text-left hover:bg-accent/50 transition-colors ${
                       selectedChat?.id === chat.id ? "bg-accent" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-medium text-sm truncate">{chat.user_name || "Unknown"}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{chat.user_name || "Unknown"}</p>
                           {(chat.unread_count || 0) > 0 && (
-                            <Badge variant="destructive" className="text-xs px-1 py-0 h-4">
+                            <Badge variant="destructive" className="text-xs px-1.5 py-0">
                               {chat.unread_count}
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">{chat.subject}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatDistanceToNow(new Date(chat.updated_at), { addSuffix: true })}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{chat.subject}</p>
                       </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex flex-col items-end gap-1">
                         {getStatusBadge(chat.status)}
                         {getPriorityBadge(chat.priority)}
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(chat.updated_at), { addSuffix: true })}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -435,35 +431,31 @@ export function AdminSupportPanel() {
         </CardContent>
       </Card>
 
-      {/* Chat Detail — full screen on mobile, 2/3 on desktop */}
-      <Card className={`lg:col-span-2 flex flex-col ${!selectedChat ? "hidden lg:flex" : "flex"}`}>
+      {/* Chat Messages */}
+      <Card className="lg:col-span-2 flex flex-col">
         {selectedChat ? (
           <>
-            {/* Header */}
-            <CardHeader className="pb-3 border-b shrink-0">
-              <div className="flex items-start gap-2">
-                {/* Mobile back button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 lg:hidden shrink-0 mt-0.5"
-                  onClick={() => setSelectedChat(null)}
-                >
-                  <ChevronDown className="h-4 w-4 rotate-90" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold truncate">{selectedChat.user_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{selectedChat.user_email}</p>
+            <CardHeader className="pb-3 border-b">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <CardTitle className="text-lg">{selectedChat.user_name}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{selectedChat.user_email}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedChat.subject}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{selectedChat.subject}</p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                <div className="flex items-start gap-2">
+                  {/* Priority Select */}
                   <Select
                     value={selectedChat.priority}
                     onValueChange={(v) => updatePriority(selectedChat.id, v as Chat["priority"])}
                   >
-                    <SelectTrigger className="w-[80px] h-7 text-xs">
+                    <SelectTrigger className="w-[100px] h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -473,44 +465,64 @@ export function AdminSupportPanel() {
                       <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button size="sm" variant={selectedChat.status === "open" ? "default" : "outline"} onClick={() => updateChatStatus(selectedChat.id, "open")} className="h-7 w-7 p-0" title="Open">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant={selectedChat.status === "closed" ? "default" : "outline"} onClick={() => updateChatStatus(selectedChat.id, "closed")} className="h-7 w-7 p-0" title="Close">
-                    <XCircle className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant={selectedChat.status === "archived" ? "default" : "outline"} onClick={() => updateChatStatus(selectedChat.id, "archived")} className="h-7 w-7 p-0" title="Archive">
-                    <Archive className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => deleteChat(selectedChat.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  
+                  {/* Status Buttons */}
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={selectedChat.status === "open" ? "default" : "outline"}
+                      onClick={() => updateChatStatus(selectedChat.id, "open")}
+                      className="h-8 px-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedChat.status === "closed" ? "default" : "outline"}
+                      onClick={() => updateChatStatus(selectedChat.id, "closed")}
+                      className="h-8 px-2"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedChat.status === "archived" ? "default" : "outline"}
+                      onClick={() => updateChatStatus(selectedChat.id, "archived")}
+                      className="h-8 px-2"
+                    >
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => deleteChat(selectedChat.id)}
+                      className="h-8 px-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>
 
-            {/* Admin Notes */}
-            <div className="px-4 py-2 border-b bg-muted/30 shrink-0">
+            {/* Admin Notes Toggle */}
+            <div className="px-4 py-2 border-b bg-muted/30">
               <button
                 onClick={() => setShowNotes(!showNotes)}
-                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
               >
-                {showNotes ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                <span>Admin Notes</span>
-                {selectedChat.admin_notes && !showNotes && (
-                  <span className="ml-auto text-xs text-primary">Has notes</span>
-                )}
+                {showNotes ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                Admin Notes
               </button>
               {showNotes && (
                 <div className="mt-2 space-y-2">
                   <Textarea
                     value={adminNotes}
                     onChange={(e) => setAdminNotes(e.target.value)}
-                    placeholder="Internal notes (not visible to user)..."
-                    className="min-h-[60px] text-sm"
-                    rows={2}
+                    placeholder="Add internal notes about this chat..."
+                    className="min-h-[80px] text-sm"
                   />
-                  <Button size="sm" onClick={saveAdminNotes} className="w-full h-7 text-xs">
+                  <Button size="sm" onClick={saveAdminNotes} className="w-full">
                     Save Notes
                   </Button>
                 </div>
@@ -519,39 +531,39 @@ export function AdminSupportPanel() {
 
             {/* Messages */}
             <CardContent className="flex-1 overflow-hidden p-0">
-              <ScrollArea className="h-[calc(100vh-28rem)] min-h-[200px] p-4">
-                <div className="space-y-3">
+              <ScrollArea className="h-[400px] p-4">
+                <div className="space-y-4">
                   {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                      <MessageCircle className="h-10 w-10 mb-3 opacity-30" />
-                      <p className="text-sm">No messages yet</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                      <MessageCircle className="h-12 w-12 mb-4 opacity-50" />
+                      <p>No messages yet</p>
                     </div>
                   ) : (
                     messages.map((msg) => (
                       <div
                         key={msg.id}
                         className={`flex ${
-                          msg.sender_role === "admin" ? "justify-end" :
-                          msg.sender_role === "system" ? "justify-center" :
+                          msg.sender_role === "admin" ? "justify-end" : 
+                          msg.sender_role === "system" ? "justify-center" : 
                           "justify-start"
                         }`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                          className={`max-w-[80%] rounded-lg px-4 py-2 ${
                             msg.sender_role === "admin"
-                              ? "bg-primary text-primary-foreground rounded-br-sm"
+                              ? "bg-primary text-primary-foreground"
                               : msg.sender_role === "system"
-                              ? "bg-transparent text-muted-foreground text-xs italic"
-                              : "bg-muted border border-border rounded-bl-sm"
+                              ? "bg-muted/50 text-muted-foreground text-xs italic text-center px-6"
+                              : "bg-muted border border-border"
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                          <p className={`text-xs mt-0.5 ${
-                            msg.sender_role === "admin" ? "text-primary-foreground/60" : "text-muted-foreground"
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <p className={`text-xs mt-1 ${
+                            msg.sender_role === "admin" ? "text-primary-foreground/70" : "text-muted-foreground"
                           }`}>
                             {format(new Date(msg.created_at), "MMM d, h:mm a")}
                             {msg.sender_role === "admin" && msg.is_read && (
-                              <span className="ml-1.5 opacity-70">✓</span>
+                              <span className="ml-2">✓ Read</span>
                             )}
                           </p>
                         </div>
@@ -563,41 +575,58 @@ export function AdminSupportPanel() {
               </ScrollArea>
             </CardContent>
 
-            {/* Input */}
-            <div className="p-3 border-t shrink-0">
+            {/* Message Input */}
+            <div className="p-4 border-t">
               {selectedChat.status === "open" ? (
                 <form
-                  onSubmit={(e) => { e.preventDefault(); sendMessage() }}
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    sendMessage()
+                  }}
                   className="flex gap-2"
                 >
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Reply..."
+                    placeholder="Type your reply..."
                     disabled={sending}
                     className="flex-1"
                   />
-                  <Button type="submit" disabled={sending || !newMessage.trim()} size="sm">
-                    {sending ? <Clock className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  <Button 
+                    type="submit" 
+                    disabled={sending || !newMessage.trim()}
+                  >
+                    {sending ? (
+                      <Clock className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                   </Button>
                 </form>
               ) : (
-                <div className="text-center py-1">
-                  <p className="text-xs text-muted-foreground">Chat is {selectedChat.status}.</p>
-                  <Button size="sm" variant="outline" onClick={() => updateChatStatus(selectedChat.id, "open")} className="mt-1.5 h-7 text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                    Reopen
+                <div className="text-center py-2">
+                  <p className="text-sm text-muted-foreground">
+                    This chat is {selectedChat.status}. Reopen to send messages.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => updateChatStatus(selectedChat.id, "open")}
+                    className="mt-2"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Reopen Chat
                   </Button>
                 </div>
               )}
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground p-8">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
-              <p className="font-medium">Select a ticket</p>
-              <p className="text-sm mt-1 opacity-70">Choose from the list on the left</p>
+              <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-medium">Select a ticket to view messages</p>
+              <p className="text-sm mt-1">Choose from the list on the left</p>
             </div>
           </div>
         )}

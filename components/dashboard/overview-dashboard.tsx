@@ -23,7 +23,7 @@ import type { Database } from "@/lib/types/database"
 import { format, startOfDay, addDays, startOfWeek, endOfWeek, differenceInDays, isSameDay, subDays } from "date-fns"
 
 type Event = Database["public"]["Tables"]["events"]["Row"] & {
-  calendar?: { color: string; name: string }
+  calendar?: { color: string; name?: string }
 }
 type CalendarRow = Database["public"]["Tables"]["calendars"]["Row"]
 
@@ -120,14 +120,26 @@ export function OverviewDashboard({
 
   const workloadBalance = useMemo(() => {
     if (!weeklyHeatMap || !Array.isArray(weeklyHeatMap) || weeklyHeatMap.length === 0) {
-      return { maxPerDay: 1, total: 0, isBalanced: true }
+      return { maxPerDay: 1, total: 0, isBalanced: true, suggestions: "" }
     }
     const maxPerDay = Math.max(...weeklyHeatMap.map((d) => d.count), 1)
     const total = weeklyHeatMap.reduce((sum, d) => sum + d.count, 0)
     const avg = total / 7
     const variance = weeklyHeatMap.reduce((sum, d) => sum + Math.pow(d.count - avg, 2), 0) / 7
-    const isBalanced = variance < 2
-    return { maxPerDay, total, isBalanced }
+    const isBalanced = maxPerDay <= 3 || maxPerDay <= total / 4
+
+    const suggestions = isBalanced
+      ? ""
+      : maxPerDay >= 6
+        ? "Try spreading tasks out—one day is very overloaded."
+        : "Consider moving 1-2 tasks from your busiest day to a lighter day."
+
+    return {
+      maxPerDay,
+      total,
+      isBalanced,
+      suggestions,
+    }
   }, [weeklyHeatMap])
 
   // Quick stats

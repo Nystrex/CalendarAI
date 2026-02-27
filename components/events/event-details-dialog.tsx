@@ -22,7 +22,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
 type Event = Database["public"]["Tables"]["events"]["Row"] & {
-  calendar?: { color: string; name: string }
+  calendar?: { color: string; name?: string }
 }
 type Calendar = Database["public"]["Tables"]["calendars"]["Row"]
 

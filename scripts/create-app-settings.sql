@@ -37,6 +37,7 @@ INSERT INTO app_settings (key, value) VALUES
   ('app_tagline', '"Your AI-powered academic calendar"'),
   
   -- Feature Toggles
+  ('feature_lms', 'true'),
   ('feature_homework_ai', 'true'),
   ('feature_google_calendar', 'true'),
   ('feature_ai_extraction', 'true'),

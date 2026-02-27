@@ -63,6 +63,8 @@ export function EventDialog({
     all_day: false,
     location: "",
     reminder_minutes: "120",
+    recurrence_rule: "none",
+    recurrence_end_date: "",
   })
 
   useEffect(() => {
@@ -85,6 +87,8 @@ export function EventDialog({
           all_day: event.all_day,
           location: event.location || "",
           reminder_minutes: event.reminder_minutes?.toString() || "120",
+          recurrence_rule: (event as any).recurrence_rule || "none",
+          recurrence_end_date: (event as any).recurrence_end_date || "",
         })
       } else if (defaultDate) {
         const hour = defaultHour ?? 9
@@ -104,6 +108,8 @@ export function EventDialog({
           all_day: false,
           location: "",
           reminder_minutes: "120",
+          recurrence_rule: "none",
+          recurrence_end_date: "",
         })
       } else {
         setFormData({
@@ -117,6 +123,8 @@ export function EventDialog({
           all_day: false,
           location: "",
           reminder_minutes: "120",
+          recurrence_rule: "none",
+          recurrence_end_date: "",
         })
       }
       setNaturalLanguageInput("")
@@ -287,6 +295,9 @@ export function EventDialog({
       const startDateTime = new Date(`${formData.start_date}T${formData.start_time}`)
       const endDateTime = new Date(`${formData.end_date}T${formData.end_time}`)
 
+      const recurrenceRule = formData.recurrence_rule !== "none" ? formData.recurrence_rule : null
+      const recurrenceEndDate = formData.recurrence_end_date || null
+
       const eventData = {
         title: formData.title,
         description: formData.description || null,
@@ -297,6 +308,8 @@ export function EventDialog({
         all_day: formData.all_day,
         location: formData.location || null,
         reminder_minutes: Number.parseInt(formData.reminder_minutes) || null,
+        recurrence_rule: recurrenceRule,
+        recurrence_end_date: recurrenceEndDate,
       }
 
       let eventId: string
@@ -342,32 +355,27 @@ export function EventDialog({
         if (error) throw error
         eventId = newEvent.id
 
+        // Expand recurring instances
+        if (recurrenceRule) {
+          await expandRecurringEvent(supabase, newEvent, recurrenceRule, recurrenceEndDate)
+        }
+
         console.log("[v0] New event created:", newEvent.id, "Calendar:", formData.calendar_id)
         
         try {
-          console.log("[v0] Syncing new event to Google Calendar...")
           const response = await fetch("/api/google/events/update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId: newEvent.id }),
           })
           const result = await response.json()
-          console.log("[v0] Google sync response:", result)
-          
-          if (result.warning) {
-            console.warn("[v0] Google sync warning:", result.warning)
-          }
-          if (result.error) {
-            console.error("[v0] Google sync error:", result.error)
-          }
-          if (result.success && result.googleEventId) {
-            console.log("[v0] Successfully synced to Google, event ID:", result.googleEventId)
-          }
+          if (result.warning) console.warn("[v0] Google sync warning:", result.warning)
+          if (result.error) console.error("[v0] Google sync error:", result.error)
         } catch (error) {
           console.error("[v0] Failed to sync to Google:", error)
         }
 
-        toast.success("Event created successfully")
+        toast.success(recurrenceRule ? "Recurring event created" : "Event created successfully")
       }
 
       onEventSaved()
@@ -540,6 +548,40 @@ export function EventDialog({
             </div>
 
             <div className="grid gap-2">
+              <Label htmlFor="recurrence">Repeat</Label>
+              <Select
+                value={formData.recurrence_rule}
+                onValueChange={(value) => setFormData({ ...formData, recurrence_rule: value })}
+              >
+                <SelectTrigger id="recurrence">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Does not repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekdays">Every weekday (Mon–Fri)</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.recurrence_rule !== "none" && (
+              <div className="grid gap-2">
+                <Label htmlFor="recurrence-end">Repeat until (optional)</Label>
+                <Input
+                  id="recurrence-end"
+                  type="date"
+                  value={formData.recurrence_end_date}
+                  onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
+                  min={formData.start_date}
+                />
+                <p className="text-xs text-muted-foreground">Leave blank to repeat for 1 year</p>
+              </div>
+            )}
+
+            <div className="grid gap-2">
               <Label htmlFor="reminder">Reminder</Label>
               <Select
                 value={formData.reminder_minutes}
@@ -579,4 +621,59 @@ export function EventDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+async function expandRecurringEvent(
+  supabase: ReturnType<typeof createClient>,
+  parentEvent: { id: string; title: string; description: string | null; calendar_id: string; user_id: string; start_time: string; end_time: string; all_day: boolean; location: string | null; reminder_minutes: number | null },
+  rule: string,
+  endDateStr: string | null,
+) {
+  const start = new Date(parentEvent.start_time)
+  const end = new Date(parentEvent.end_time)
+  const durationMs = end.getTime() - start.getTime()
+
+  const endDate = endDateStr ? new Date(endDateStr) : new Date(start.getFullYear() + 1, start.getMonth(), start.getDate())
+  endDate.setHours(23, 59, 59, 999)
+
+  const instances: Array<typeof parentEvent & { recurrence_rule: string; recurrence_parent_id: string }> = []
+  const cursor = new Date(start)
+
+  const advance = () => {
+    switch (rule) {
+      case "daily":    cursor.setDate(cursor.getDate() + 1); break
+      case "weekdays": {
+        cursor.setDate(cursor.getDate() + 1)
+        while (cursor.getDay() === 0 || cursor.getDay() === 6) cursor.setDate(cursor.getDate() + 1)
+        break
+      }
+      case "weekly":   cursor.setDate(cursor.getDate() + 7); break
+      case "biweekly": cursor.setDate(cursor.getDate() + 14); break
+      case "monthly":  cursor.setMonth(cursor.getMonth() + 1); break
+    }
+  }
+
+  advance()
+  let safetyLimit = 365
+  while (cursor <= endDate && safetyLimit-- > 0) {
+    const instStart = new Date(cursor)
+    const instEnd = new Date(cursor.getTime() + durationMs)
+    instances.push({
+      ...parentEvent,
+      id: undefined as unknown as string,
+      start_time: instStart.toISOString(),
+      end_time: instEnd.toISOString(),
+      recurrence_rule: rule,
+      recurrence_parent_id: parentEvent.id,
+    })
+    advance()
+  }
+
+  if (instances.length === 0) return
+
+  // Insert in batches of 50
+  for (let i = 0; i < instances.length; i += 50) {
+    const batch = instances.slice(i, i + 50).map(({ id: _id, ...rest }) => rest)
+    await supabase.from("events").insert(batch)
+  }
 }

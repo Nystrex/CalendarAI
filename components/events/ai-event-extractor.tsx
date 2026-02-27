@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,10 +32,13 @@ interface ExtractedEvent {
   time?: string
   endTime?: string
   isAllDay?: boolean
+  itemType?: "assignment" | "quiz" | "exam" | null
   courseCode?: string
   selected: boolean
   autoMatchedCalendarId?: string
 }
+
+type SaveMode = "calendar" | "school"
 
 interface AIEventExtractorProps {
   open: boolean
@@ -48,6 +51,7 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
   const [isExtracting, setIsExtracting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [requiresApiKey, setRequiresApiKey] = useState(false)
+  const [saveMode, setSaveMode] = useState<SaveMode>("calendar")
   const [selectedCalendarId, setSelectedCalendarId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ai-extractor-calendar")
@@ -216,6 +220,62 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
     }
   }
 
+  const supabase = useMemo(() => createClient(), [])
+
+  const parseEventDateTime = (event: ExtractedEvent) => {
+    let startDateTime: Date
+    let endDateTime: Date
+
+    if (event.date) {
+      const dateParts = event.date.split("-")
+      const year = Number.parseInt(dateParts[0])
+      const month = Number.parseInt(dateParts[1]) - 1
+      const day = Number.parseInt(dateParts[2])
+
+      if (event.time) {
+        const [hours, minutes] = event.time.split(":").map(Number)
+        startDateTime = new Date(year, month, day, hours, minutes)
+
+        if (event.endTime) {
+          const [endHours, endMinutes] = event.endTime.split(":").map(Number)
+          endDateTime = new Date(year, month, day, endHours, endMinutes)
+        } else {
+          endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000)
+        }
+      } else {
+        startDateTime = new Date(year, month, day, 23, 59)
+        endDateTime = new Date(year, month, day, 23, 59)
+      }
+    } else {
+      const today = new Date()
+      startDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59)
+      endDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59)
+    }
+
+    return { startDateTime, endDateTime }
+  }
+
+  const normalizeCourseCode = (courseCode: string | undefined) => {
+    if (!courseCode) return null
+    const m = courseCode.trim().match(/([A-Za-z]{2,6})\s*(\d{3,4})/)
+    if (!m) return courseCode.trim().toUpperCase()
+    return `${m[1].toUpperCase()} ${m[2]}`
+  }
+
+  const inferItemType = (event: ExtractedEvent): "assignment" | "quiz" | "exam" => {
+    if (event.itemType === "assignment" || event.itemType === "quiz" || event.itemType === "exam") return event.itemType
+    const t = `${event.title} ${event.description || ""}`.toLowerCase()
+    if (/(final|exam|midterm)\b/.test(t)) return "exam"
+    if (/\bquiz\b|\btest\b/.test(t)) return "quiz"
+    return "assignment"
+  }
+
+  const calendarNameForItemType = (t: "assignment" | "quiz" | "exam") => {
+    if (t === "assignment") return "Assignments"
+    if (t === "quiz") return "Quizzes"
+    return "Exams"
+  }
+
   const handleSaveEvents = async () => {
     const eventsToSave = extractedEvents.filter((e) => e.selected)
 
@@ -233,41 +293,13 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
     setIsSaving(true)
 
     try {
-      const supabase = createClient()
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
       const eventsData = eventsToSave.map((event) => {
-        let startDateTime: Date
-        let endDateTime: Date
-
-        if (event.date) {
-          const dateParts = event.date.split("-")
-          const year = Number.parseInt(dateParts[0])
-          const month = Number.parseInt(dateParts[1]) - 1
-          const day = Number.parseInt(dateParts[2])
-
-          if (event.time) {
-            const [hours, minutes] = event.time.split(":").map(Number)
-            startDateTime = new Date(year, month, day, hours, minutes)
-
-            if (event.endTime) {
-              const [endHours, endMinutes] = event.endTime.split(":").map(Number)
-              endDateTime = new Date(year, month, day, endHours, endMinutes)
-            } else {
-              endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000)
-            }
-          } else {
-            startDateTime = new Date(year, month, day, 23, 59)
-            endDateTime = new Date(year, month, day, 23, 59)
-          }
-        } else {
-          const today = new Date()
-          startDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59)
-          endDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59)
-        }
+        const { startDateTime, endDateTime } = parseEventDateTime(event)
 
         const calendarId = event.autoMatchedCalendarId || selectedCalendarId
 
@@ -313,6 +345,146 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
     } catch (error) {
       console.error("[v0] Error saving events:", error)
       toast.error(error instanceof Error ? error.message : "Failed to save events")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSaveSchoolItems = async () => {
+    const eventsToSave = extractedEvents.filter((e) => e.selected)
+
+    if (eventsToSave.length === 0) {
+      toast.error("No events selected")
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const { data: existingCourses, error: coursesError } = await supabase
+        .from("school_courses")
+        .select("id,code,name,term")
+        .eq("user_id", user.id)
+
+      if (coursesError) throw coursesError
+
+      const courseRows = (existingCourses || []) as Array<{ id: string; code: string; name: string; term: string | null }>
+      const courseMap = new Map(courseRows.map((c) => [c.code.toUpperCase(), c]))
+
+      const getOrCreateCourseId = async (courseCode: string | null) => {
+        const normalized = normalizeCourseCode(courseCode || undefined)
+        if (!normalized) return null
+
+        const cached = courseMap.get(normalized.toUpperCase())
+        if (cached) return cached.id
+
+        const { data: inserted, error } = await supabase
+          .from("school_courses")
+          .insert({
+            user_id: user.id,
+            code: normalized.toUpperCase(),
+            name: normalized.toUpperCase(),
+            term: null,
+          })
+          .select("id,code,name,term")
+          .single()
+
+        if (error) throw error
+        const row = inserted as { id: string; code: string; name: string; term: string | null }
+        courseMap.set(row.code.toUpperCase(), row)
+        return row.id
+      }
+
+      const { data: cals, error: calError } = await supabase
+        .from("calendars")
+        .select("id,name")
+        .eq("user_id", user.id)
+
+      if (calError) throw calError
+      const calendarsByName = new Map(((cals || []) as Array<{ id: string; name: string }>).map((c) => [c.name.toLowerCase(), c.id]))
+
+      let createdCount = 0
+
+      for (const ev of eventsToSave) {
+        const courseId = await getOrCreateCourseId(ev.courseCode || null)
+        if (!courseId) {
+          continue
+        }
+
+        const itemType = inferItemType(ev)
+        const { startDateTime } = parseEventDateTime(ev)
+        const dueAtIso = ev.date ? startDateTime.toISOString() : null
+
+        const { data: insertedItem, error: itemError } = await supabase
+          .from("school_items")
+          .insert({
+            user_id: user.id,
+            course_id: courseId,
+            item_type: itemType,
+            title: ev.title,
+            description: ev.description || null,
+            due_at: dueAtIso,
+            reminder_1_minutes: 1440,
+            reminder_2_minutes: 120,
+          })
+          .select("id")
+          .single()
+
+        if (itemError) throw itemError
+
+        const calName = calendarNameForItemType(itemType)
+        const schoolCalendarId = calendarsByName.get(calName.toLowerCase())
+
+        if (schoolCalendarId && dueAtIso) {
+          const { endDateTime } = parseEventDateTime(ev)
+          const { data: newEvent, error: evError } = await supabase
+            .from("events")
+            .insert({
+              title: ev.title,
+              description: ev.description || null,
+              calendar_id: schoolCalendarId,
+              user_id: user.id,
+              start_time: startDateTime.toISOString(),
+              end_time: endDateTime.toISOString(),
+              all_day: ev.isAllDay || !ev.time,
+              location: null,
+              reminder_minutes: 120,
+              provider: "local",
+              provider_event_id: null,
+            })
+            .select("id")
+            .single()
+
+          if (evError) throw evError
+
+          const { error: linkErr } = await supabase
+            .from("school_items")
+            .update({ event_id: (newEvent as { id: string }).id })
+            .eq("id", (insertedItem as { id: string }).id)
+
+          if (linkErr) throw linkErr
+        }
+
+        createdCount++
+      }
+
+      toast.success(`Created ${createdCount} school item${createdCount === 1 ? "" : "s"}!`)
+
+      setExtractedEvents([])
+      setUploadedFile(null)
+      setTextInput("")
+      setPreviewUrl(null)
+
+      onEventsSaved()
+      onOpenChange(false)
+    } catch (e) {
+      console.error("[v0] Error saving school items:", e)
+      toast.error(e instanceof Error ? e.message : "Failed to save school items")
     } finally {
       setIsSaving(false)
     }
@@ -412,6 +584,19 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
               </AlertDescription>
             </Alert>
           )}
+
+          <div className="grid gap-2">
+            <Label>Save extracted results as</Label>
+            <Select value={saveMode} onValueChange={(v) => setSaveMode(v as SaveMode)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="calendar">Calendar events</SelectItem>
+                <SelectItem value="school">School items (Assignments/Quizzes/Exams)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="grid gap-2">
             <Label>Default calendar for unmatched events</Label>
@@ -658,7 +843,7 @@ Assignment 5 due tomorrow at 11:59 PM`}
           </Button>
           {extractedEvents.length > 0 && (
             <Button
-              onClick={handleSaveEvents}
+              onClick={saveMode === "school" ? handleSaveSchoolItems : handleSaveEvents}
               disabled={isSaving || extractedEvents.filter((e) => e.selected).length === 0}
             >
               {isSaving ? (
@@ -669,7 +854,9 @@ Assignment 5 due tomorrow at 11:59 PM`}
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Add {extractedEvents.filter((e) => e.selected).length} Events
+                  {saveMode === "school"
+                    ? `Add ${extractedEvents.filter((e) => e.selected).length} School Items`
+                    : `Add ${extractedEvents.filter((e) => e.selected).length} Events`}
                 </>
               )}
             </Button>

@@ -13,6 +13,10 @@ const extractedEventSchema = z.object({
       time: z.string().nullable().describe("The time in HH:MM format (24-hour), or null if not specified"),
       endTime: z.string().nullable().describe("The end time in HH:MM format if this is a time range, or null"),
       isAllDay: z.boolean().describe("Whether this is an all-day event (true if no specific time given)"),
+      itemType: z
+        .enum(["assignment", "quiz", "exam"])
+        .nullable()
+        .describe("If this is a school item, classify it as assignment, quiz, or exam. Otherwise null."),
       courseCode: z
         .string()
         .nullable()
@@ -71,6 +75,10 @@ Important rules:
 6. If you see time ranges like "2:30 PM - 4:30 PM", extract both start and end time
 7. Extract descriptions from parentheses or additional context
 8. Be thorough - don't miss any events!
+9. If the item is clearly a school item, set itemType to one of: assignment, quiz, exam.
+   - quiz: quiz, test, midterm quiz
+   - exam: exam, midterm, final, final exam
+   - assignment: assignment, homework, lab, project, essay
 
 Current date context: January 2026`
 

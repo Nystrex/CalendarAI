@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCalendar } from "@/lib/hooks/use-calendar"
@@ -58,25 +59,36 @@ import {
   MessageCircle,
   Info,
   BookOpen,
+  ClipboardList,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { detectTimezone } from "@/lib/utils/timezone"
 import { useAutoSync } from "@/lib/hooks/use-auto-sync"
+import { useAppSettings } from "@/lib/hooks/use-app-settings"
+import { ensureSchoolCalendars } from "@/lib/school/ensure-school-calendars"
 import { AvatarChooser } from "@/components/settings/avatar-chooser"
 import { GoogleCalendarConnect } from "@/components/integrations/google-calendar-connect"
 import { OverviewDashboard } from "@/components/dashboard/overview-dashboard"
 import { HomeworkChat } from "@/components/homework/homework-chat" // Import HomeworkChat
+import { UniversityIntegration } from "@/components/university/university-integration" // Import UniversityIntegration
+import { SchoolDashboard } from "@/components/school/school-dashboard"
+import { SchoolCalendarPanel } from "@/components/school/school-calendar-panel"
 
 type EventType = Database["public"]["Tables"]["events"]["Row"] & {
-  calendar?: { color: string; name: string }
+  calendar?: { color: string; name?: string }
 }
 type CalendarType = Database["public"]["Tables"]["calendars"]["Row"]
 type ViewType = "day" | "week" | "month" | "year"
 
+type CalendarRow = CalendarType & { is_visible?: boolean }
+type EventRow = Database["public"]["Tables"]["events"]["Row"]
+
 export default function DashboardPage() {
   const { currentDate, view, dateRange, goToNext, goToPrev, goToToday, changeView: originalChangeView, setCurrentDate } = useCalendar()
+  const { settings } = useAppSettings()
+  const isLmsEnabled = settings?.feature_lms !== false
   const [allEvents, setAllEvents] = useState<EventType[]>([])
   const [calendars, setCalendars] = useState<CalendarType[]>([])
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([])
@@ -104,7 +116,7 @@ export default function DashboardPage() {
   const [trialEligible, setTrialEligible] = useState(false)
   const [onboardingCompleted, setOnboardingCompleted] = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [dashboardMode, setDashboardMode] = useState<"overview" | "calendar" | "homework" | "settings">("overview")
+  const [dashboardMode, setDashboardMode] = useState<"overview" | "calendar" | "school" | "homework" | "university" | "settings">("overview")
   const [isGoogleConnected, setIsGoogleConnected] = useState(false)
   const [defaultView, setDefaultView] = useState("month")
   const [weekStartsOn, setWeekStartsOn] = useState("sunday")
@@ -112,6 +124,12 @@ export default function DashboardPage() {
   const router = useRouter()
   const { syncNow } = useAutoSync(30)
   const [isAdmin, setIsAdmin] = useState(false) // Declare isAdmin variable
+
+  useEffect(() => {
+    if (!isLmsEnabled && dashboardMode === "university") {
+      setDashboardMode("overview")
+    }
+  }, [isLmsEnabled, dashboardMode])
   // Wrapper for changeView with paywall check
   const changeView = (newView: ViewType) => {
     // Check if user is trying to access year view without premium
@@ -198,6 +216,12 @@ export default function DashboardPage() {
           return
         }
 
+        try {
+          await ensureSchoolCalendars(user.id)
+        } catch {
+          // Non-blocking
+        }
+
         const { data: calendarsData, error: calendarsError } = await supabase
           .from("calendars")
           .select("*")
@@ -209,8 +233,8 @@ export default function DashboardPage() {
         }
 
         // Show all calendars in sidebar, but only auto-select visible ones
-        const allCalendars = calendarsData || []
-        const visibleCalendars = allCalendars.filter((cal) => cal.is_visible !== false)
+        const allCalendars = (calendarsData || []) as CalendarRow[]
+        const visibleCalendars = allCalendars.filter((cal: CalendarRow) => cal.is_visible !== false)
         setCalendars(allCalendars)
 
         let calendarIdsToUse = selectedCalendarIds
@@ -220,7 +244,7 @@ export default function DashboardPage() {
           const savedSelection = userId ? localStorage.getItem(`selectedCalendarIds:${userId}`) : null
           if (!savedSelection) {
             // Default: select all visible calendars (excluding hidden ones like "Completed")
-            const allIds = visibleCalendars.map((c) => c.id)
+            const allIds = visibleCalendars.map((c: CalendarRow) => c.id)
             setSelectedCalendarIds(allIds)
             calendarIdsToUse = allIds
           } else {
@@ -228,18 +252,18 @@ export default function DashboardPage() {
               const parsed = JSON.parse(savedSelection)
               if (Array.isArray(parsed)) {
                 // Filter to only include calendars that still exist and are visible
-                const validIds = parsed.filter((id) => visibleCalendars.some((cal) => cal.id === id))
+                const validIds = parsed.filter((id: string) => visibleCalendars.some((cal: CalendarRow) => cal.id === id))
                 setSelectedCalendarIds(validIds)
                 calendarIdsToUse = validIds
               }
             } catch {
-              const allIds = visibleCalendars.map((c) => c.id)
+              const allIds = visibleCalendars.map((c: CalendarRow) => c.id)
               setSelectedCalendarIds(allIds)
               calendarIdsToUse = allIds
             }
           }
         } else if (visibleCalendars.length > 0) {
-          const validIds = selectedCalendarIds.filter((id) => visibleCalendars.some((cal) => cal.id === id))
+          const validIds = selectedCalendarIds.filter((id: string) => visibleCalendars.some((cal: CalendarRow) => cal.id === id))
           if (validIds.length !== selectedCalendarIds.length) {
             setSelectedCalendarIds(validIds)
             calendarIdsToUse = validIds
@@ -247,7 +271,7 @@ export default function DashboardPage() {
         }
 
         // Use visible calendars for loading events when forcing reload
-        const idsForQuery = force ? visibleCalendars.map(c => c.id) : calendarIdsToUse
+        const idsForQuery = force ? visibleCalendars.map((c: CalendarRow) => c.id) : calendarIdsToUse
 
         if (idsForQuery.length > 0) {
           const query = supabase.from("events").select("*").in("calendar_id", idsForQuery).order("start_time")
@@ -266,9 +290,9 @@ export default function DashboardPage() {
 
           if (eventsError) throw eventsError
 
-          const eventsWithCalendar = (eventsData || []).map((event) => ({
+          const eventsWithCalendar = ((eventsData || []) as EventRow[]).map((event: EventRow) => ({
             ...event,
-            calendar: allCalendars.find((c) => c.id === event.calendar_id),
+            calendar: allCalendars.find((c: CalendarRow) => c.id === event.calendar_id),
           }))
 
           setAllEvents(eventsWithCalendar)
@@ -847,6 +871,14 @@ export default function DashboardPage() {
             <CalendarIcon className="h-4 w-4 shrink-0" />
             <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Calendar</span>
           </Button>
+          <Button
+            variant={dashboardMode === "school" ? "secondary" : "ghost"}
+            className={`w-full justify-start transition-all ${dashboardMode === "school" ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15" : "hover:bg-muted/50"}`}
+            onClick={() => setDashboardMode("school")}
+          >
+            <ClipboardList className="h-4 w-4 shrink-0" />
+            <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">School</span>
+          </Button>
           {isAdmin && (
             <Button variant="ghost" className="w-full justify-start hover:bg-amber-500/10 hover:text-amber-500" asChild>
               <Link href="/admin">
@@ -863,6 +895,16 @@ export default function DashboardPage() {
             <Brain className="h-4 w-4 shrink-0" />
             <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Homework Help</span>
           </Button>
+          {isLmsEnabled && (
+            <Button
+              variant={dashboardMode === "university" ? "secondary" : "ghost"}
+              className={`w-full justify-start transition-all ${dashboardMode === "university" ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/15" : "hover:bg-muted/50"}`}
+              onClick={() => setDashboardMode("university")}
+            >
+              <GraduationCap className="h-4 w-4 shrink-0" />
+              <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">University</span>
+            </Button>
+          )}
           <Button
             variant={dashboardMode === "settings" ? "secondary" : "ghost"}
             className={`w-full justify-start transition-all ${dashboardMode === "settings" ? "bg-primary/10 text-primary hover:bg-primary/15" : "hover:bg-muted/50"}`}
@@ -885,52 +927,37 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden border-b bg-card/50 backdrop-blur-sm px-3 py-2">
-          <div className="flex items-center justify-between">
-            {/* Mode Toggle Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
-              <Button
-                variant={dashboardMode === "overview" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-3 text-xs"
-                onClick={() => setDashboardMode("overview")}
-              >
-                <LayoutDashboard className="h-3.5 w-3.5 mr-1.5" />
-                Overview
-              </Button>
-              <Button
-                variant={dashboardMode === "calendar" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-3 text-xs"
-                onClick={() => setDashboardMode("calendar")}
-              >
-                <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-                Calendar
-              </Button>
+        <header className="md:hidden border-b bg-card/50 backdrop-blur-sm px-2 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {/* Primary nav — scrollable pill row */}
+            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg shrink-0">
+              {([
+                { mode: "overview" as const, Icon: LayoutDashboard, label: "Home" },
+                { mode: "calendar" as const, Icon: CalendarIcon, label: "Calendar" },
+                { mode: "school" as const, Icon: ClipboardList, label: "School" },
+                { mode: "homework" as const, Icon: Brain, label: "AI" },
+                ...(isLmsEnabled ? [{ mode: "university" as const, Icon: GraduationCap, label: "Uni" }] : []),
+              ] as { mode: typeof dashboardMode; Icon: React.ElementType; label: string }[]).map(({ mode, Icon, label }) => (
+                <Button
+                  key={mode}
+                  variant={dashboardMode === mode ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-8 px-2.5 text-xs shrink-0"
+                  onClick={() => setDashboardMode(mode)}
+                >
+                  <Icon className="h-3.5 w-3.5 mr-1" />
+                  {label}
+                </Button>
+              ))}
             </div>
-            {/* Actions */}
-            <div className="flex items-center gap-1">
+            {/* Right actions */}
+            <div className="flex items-center gap-1 ml-auto shrink-0">
               {isAdmin && (
                 <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                  <Link href="/admin">
-                    <Shield className="h-4 w-4" />
-                  </Link>
+                  <Link href="/admin"><Shield className="h-4 w-4" /></Link>
                 </Button>
               )}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => setDashboardMode("homework")}
-              >
-                <Brain className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => setDashboardMode("settings")}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDashboardMode("settings")}>
                 <Settings className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSignOut}>
@@ -979,7 +1006,7 @@ export default function DashboardPage() {
             <div className="hidden md:block">
               <SearchFilter
                 searchQuery={searchQuery}
-                calendarFilter={calendarFilter}
+                selectedCalendarFilter={calendarFilter}
                 calendars={calendars}
                 onSearchChange={setSearchQuery}
                 onCalendarFilterChange={setCalendarFilter}
@@ -997,8 +1024,17 @@ export default function DashboardPage() {
                 />
               </div>
               <div className="flex-1 overflow-auto relative">{renderCalendarView()}</div>
+              <div className="hidden xl:block">
+                <SchoolCalendarPanel userId={userId} />
+              </div>
             </div>
           </>
+        )}
+
+        {dashboardMode === "school" && (
+          <div className="flex-1 overflow-auto">
+            <SchoolDashboard />
+          </div>
         )}
 
         {dashboardMode === "overview" && (
@@ -1033,6 +1069,12 @@ export default function DashboardPage() {
 
         {dashboardMode === "homework" && (
           <HomeworkWorkspace userId={userId || ""} userAvatar={userAvatar || undefined} />
+        )}
+
+        {isLmsEnabled && dashboardMode === "university" && (
+          <div className="flex-1 overflow-auto">
+            <UniversityIntegration />
+          </div>
         )}
       </div>
 

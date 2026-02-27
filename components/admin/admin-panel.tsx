@@ -43,10 +43,13 @@ import {
   Star,
   MessageCircle,
   Settings,
-  ListTodo
+  ListTodo,
+  Users2,
 } from "lucide-react"
 import { AdminSupportPanel } from "./admin-support-panel"
 import { AdminConfigPanel } from "./admin-config-panel"
+import { AdminLMSPanel } from "./admin-lms-panel"
+import { AdminImpersonationPanel } from "./admin-impersonation-panel"
 import { ToDoList } from "../to-do-list"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -482,57 +485,67 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="outline" size="sm" asChild className="shrink-0">
               <Link href="/dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Dashboard
+                <span className="hidden sm:inline">Dashboard</span>
               </Link>
             </Button>
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <h1 className="text-xl sm:text-3xl font-bold truncate">Admin Dashboard</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
               {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
-            <p className="text-sm text-muted-foreground">{userEmail}</p>
+            <p className="text-xs text-muted-foreground truncate max-w-[160px]">{userEmail}</p>
           </div>
         </div>
 
         {stats && (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-<TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
-  <TabsTrigger value="overview" className="gap-2">
-  <BarChart3 className="h-4 w-4" />
-  <span className="hidden sm:inline">Overview</span>
-  </TabsTrigger>
-  <TabsTrigger value="users" className="gap-2">
-  <Users className="h-4 w-4" />
-  <span className="hidden sm:inline">Users</span>
-  </TabsTrigger>
-  <TabsTrigger value="config" className="gap-2">
-  <Settings className="h-4 w-4" />
-  <span className="hidden sm:inline">Config</span>
-  </TabsTrigger>
-  <TabsTrigger value="support" className="gap-2">
-  <MessageCircle className="h-4 w-4" />
-  <span className="hidden sm:inline">Support</span>
-  </TabsTrigger>
-  <TabsTrigger value="activity" className="gap-2">
-  <History className="h-4 w-4" />
-  <span className="hidden sm:inline">Activity</span>
-  </TabsTrigger>
-  <TabsTrigger value="system" className="gap-2">
-  <Server className="h-4 w-4" />
-  <span className="hidden sm:inline">System</span>
-  </TabsTrigger>
-    <TabsTrigger value="todo" className="gap-2">
-  <ListTodo className="h-4 w-4" />
-  <span className="hidden sm:inline">To-Do</span>
-  </TabsTrigger>
-  </TabsList>
+              <div className="overflow-x-auto pb-1">
+                <TabsList className="inline-flex w-max">
+                  <TabsTrigger value="overview" className="gap-1.5 px-3">
+                    <BarChart3 className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Overview</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="users" className="gap-1.5 px-3">
+                    <Users className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Users</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="lms" className="gap-1.5 px-3">
+                    <GraduationCap className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">LMS</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="config" className="gap-1.5 px-3">
+                    <Settings className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Config</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="support" className="gap-1.5 px-3">
+                    <MessageCircle className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Support</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="gap-1.5 px-3">
+                    <History className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Activity</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="system" className="gap-1.5 px-3">
+                    <Server className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">System</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="todo" className="gap-1.5 px-3">
+                    <ListTodo className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">To-Do</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="impersonate" className="gap-1.5 px-3">
+                    <Users2 className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Controls</span>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* Overview Tab */}
               <TabsContent value="overview" className="space-y-6">
@@ -911,7 +924,12 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
                 </Card>
               </TabsContent>
 
-              {/* Config Tab */}
+              {/* LMS Tab */}
+<TabsContent value="lms" className="space-y-6">
+  <AdminLMSPanel />
+</TabsContent>
+
+{/* Config Tab */}
               <TabsContent value="config" className="space-y-6">
                 <AdminConfigPanel />
               </TabsContent>
@@ -926,6 +944,14 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
   <ToDoList />
 </TabsContent>
 
+
+              {/* Impersonation / Controls Tab */}
+              <TabsContent value="impersonate" className="space-y-6">
+                <AdminImpersonationPanel
+                  users={stats.users}
+                  currentAdminEmail={userEmail}
+                />
+              </TabsContent>
 
               {/* System Tab */}
               <TabsContent value="system" className="space-y-6">

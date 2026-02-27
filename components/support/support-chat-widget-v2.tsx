@@ -88,7 +88,7 @@ export function SupportChatWidget() {
     if (data) {
       setMessages(data)
       // Check for unread admin messages
-      const hasUnreadAdmin = data.some((m: Message) => m.sender_role === "admin" && !m.is_read)
+      const hasUnreadAdmin = data.some(m => m.sender_role === "admin" && !m.is_read)
       setHasUnread(hasUnreadAdmin)
     }
   }
@@ -165,7 +165,7 @@ export function SupportChatWidget() {
   const markMessagesAsRead = async () => {
     if (!chat?.id) return
     
-    const unreadMessages = messages.filter((m: Message) => m.sender_role === "admin" && !m.is_read)
+    const unreadMessages = messages.filter(m => m.sender_role === "admin" && !m.is_read)
     if (unreadMessages.length === 0) return
     
     await supabase

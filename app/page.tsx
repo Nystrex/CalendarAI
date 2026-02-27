@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Calendar, Clock, Sparkles, Zap, CalendarCheck, Globe, ArrowRight } from "lucide-react"
+import { Calendar, Clock, Sparkles, Zap, CalendarCheck, Globe, ArrowRight, Play } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 
 export default async function HomePage() {
@@ -23,7 +23,13 @@ export default async function HomePage() {
             <Calendar className="h-6 w-6 text-primary" />
             <span className="text-xl font-bold">CalendarAI</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+              <Link href="/demo">
+                <Play className="h-3.5 w-3.5" />
+                Live Demo
+              </Link>
+            </Button>
             <Button asChild variant="ghost" size="sm">
               <Link href="/auth/login">Log in</Link>
             </Button>
@@ -63,8 +69,11 @@ export default async function HomePage() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base bg-transparent">
-                    <Link href="/pricing">View pricing</Link>
+                  <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base bg-transparent gap-2">
+                    <Link href="/demo">
+                      <Play className="h-4 w-4" />
+                      Try Live Demo
+                    </Link>
                   </Button>
                 </div>
                 
@@ -330,8 +339,11 @@ export default async function HomePage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base bg-transparent">
-                <Link href="/pricing">View all plans</Link>
+              <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base bg-transparent gap-2">
+                <Link href="/demo">
+                  <Play className="h-4 w-4" />
+                  Try Live Demo
+                </Link>
               </Button>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">

@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-type SettingsMap = Record<string, unknown>
+type SettingsMap = Record<string, any>
 
 export function AdminConfigPanel() {
   const [settings, setSettings] = useState<SettingsMap>({})
@@ -587,6 +587,9 @@ export function AdminConfigPanel() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0">
+            <div className="px-2">
+              <Toggle settingKey="feature_lms" label="University LMS" description="University LMS integration" />
+            </div>
             <div className="px-2">
               <Toggle settingKey="feature_homework_ai" label="AI Homework Helper" description="AI-powered homework assistant" />
             </div>

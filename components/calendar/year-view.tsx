@@ -5,7 +5,7 @@ import { format, isSameDay, startOfMonth } from "date-fns"
 import type { Database } from "@/lib/types/database"
 
 type Event = Database["public"]["Tables"]["events"]["Row"] & {
-  calendar?: { color: string; name: string }
+  calendar?: { color: string; name?: string }
 }
 
 interface YearViewProps {

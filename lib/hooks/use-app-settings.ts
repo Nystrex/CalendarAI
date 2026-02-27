@@ -22,6 +22,7 @@ export type AppSettings = {
   maintenance_message: string
   app_name: string
   app_tagline: string
+  feature_lms: boolean
   feature_homework_ai: boolean
   feature_google_calendar: boolean
   feature_ai_extraction: boolean
