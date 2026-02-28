@@ -61,7 +61,7 @@ import {
   BookOpen,
   ClipboardList,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { detectTimezone } from "@/lib/utils/timezone"
@@ -90,8 +90,30 @@ export default function DashboardPage() {
   const { currentDate, view, dateRange, goToNext, goToPrev, goToToday, changeView: originalChangeView, setCurrentDate } = useCalendar()
   const { settings } = useAppSettings()
   const isLmsEnabled = settings?.feature_lms !== false
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const { syncNow } = useAutoSync(30)
+  const [isAdmin, setIsAdmin] = useState(false)
+
   const [allEvents, setAllEvents] = useState<EventType[]>([])
   const [calendars, setCalendars] = useState<CalendarType[]>([])
+
+  // Handle eventId deep-link from Discord
+  useEffect(() => {
+    const eventId = searchParams.get('eventId')
+    if (eventId && allEvents.length > 0) {
+      const event = allEvents.find(e => e.id === eventId)
+      if (event) {
+        setSelectedEvent(event)
+        setDetailsDialogOpen(true)
+        // Clear the query param
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.delete('eventId')
+        window.history.replaceState({}, '', newUrl.toString())
+      }
+    }
+  }, [searchParams, allEvents])
+
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [eventDialogOpen, setEventDialogOpen] = useState(false)
@@ -122,9 +144,6 @@ export default function DashboardPage() {
   const [defaultView, setDefaultView] = useState("month")
   const [weekStartsOn, setWeekStartsOn] = useState("sunday")
   const [timeFormat, setTimeFormat] = useState("12")
-  const router = useRouter()
-  const { syncNow } = useAutoSync(30)
-  const [isAdmin, setIsAdmin] = useState(false) // Declare isAdmin variable
 
   useEffect(() => {
     if (!isLmsEnabled && dashboardMode === "university") {

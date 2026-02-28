@@ -28,6 +28,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
+import { DiscordBotPanel } from "./discord-bot-panel"
 
 type SettingsMap = Record<string, any>
 
@@ -611,6 +612,9 @@ export function AdminConfigPanel() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Discord Bot Tools */}
+      <DiscordBotPanel />
 
       {/* Status Summary */}
       <Card className="border-dashed">

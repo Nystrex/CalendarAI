@@ -83,10 +83,18 @@ export async function POST(req: NextRequest) {
 
     const dmChannel = JSON.parse(dmResponseText)
 
-    // Step 2: Send message
-    const timeStr = new Date(event.start_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    const dateStr = new Date(event.start_time).toLocaleDateString()
-    const message = `📅 **Event Reminder**\n\n**${event.title}**\n${event.description || ""}\n\n⏰ **${dateStr} at ${timeStr}**`
+    // Step 2: Send message (embed with absolute + relative timestamps)
+    const eventDate = new Date(event.start_time)
+    const unix = Math.floor(eventDate.getTime() / 1000)
+    const content = `⏰ Reminder <t:${unix}:R>`
+    const embed = {
+      title: "Event Reminder",
+      description: [`**${event.title}**`, (event.description || "").trim()].filter(Boolean).join("\n\n"),
+      color: 0x5865f2,
+      fields: [
+        { name: "When", value: `<t:${unix}:F> (<t:${unix}:R>)` },
+      ],
+    }
 
     steps.push(`8. Sending message to channel ${dmChannel.id}`)
     const msgResponse = await fetch(`${DISCORD_API_BASE}/channels/${dmChannel.id}/messages`, {
@@ -95,7 +103,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bot ${botToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content: message }),
+      body: JSON.stringify({ content, embeds: [embed] }),
     })
 
     const msgResponseText = await msgResponse.text()

@@ -5,7 +5,9 @@ export async function sendDiscordNotification(
   discordId: string,
   title: string,
   description: string,
-  eventTime: Date
+  eventTime: Date,
+  eventId?: string,
+  userId?: string
 ): Promise<boolean> {
   try {
     if (!DISCORD_TOKEN) {
@@ -13,10 +15,59 @@ export async function sendDiscordNotification(
       return false
     }
 
-    const timeStr = eventTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    const dateStr = eventTime.toLocaleDateString()
+    const unix = Math.floor(eventTime.getTime() / 1000)
+    const content = `⏰ Reminder <t:${unix}:R>`
+    const embed = {
+      title: "Event Reminder",
+      description: [`**${title}**`, (description || "").trim()].filter(Boolean).join("\n\n"),
+      color: 0x5865f2,
+      fields: [
+        {
+          name: "When",
+          value: `<t:${unix}:F> (<t:${unix}:R>)`,
+        },
+      ],
+    }
 
-    const message = `📅 **Event Reminder**\n\n**${title}**\n${description || ""}\n\n⏰ **${dateStr} at ${timeStr}**`
+    // Build components (buttons) if we have eventId and userId
+    const components: any[] = []
+    if (eventId && userId) {
+      components.push({
+        type: 1, // Action Row
+        components: [
+          {
+            type: 2, // Button
+            style: 5, // Link
+            label: "Open in CalendarAI",
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?eventId=${eventId}`,
+          },
+          {
+            type: 2,
+            style: 2, // Secondary
+            label: "Snooze 5m",
+            custom_id: `snooze_5_${userId}_${eventId}`,
+          },
+          {
+            type: 2,
+            style: 2,
+            label: "Snooze 10m",
+            custom_id: `snooze_10_${userId}_${eventId}`,
+          },
+          {
+            type: 2,
+            style: 2,
+            label: "Snooze 30m",
+            custom_id: `snooze_30_${userId}_${eventId}`,
+          },
+          {
+            type: 2,
+            style: 3, // Success
+            label: "Mark Done",
+            custom_id: `done_${userId}_${eventId}`,
+          },
+        ],
+      })
+    }
 
     console.log(`[Discord] Attempting to send DM to user ${discordId}`)
 
@@ -40,13 +91,18 @@ export async function sendDiscordNotification(
     console.log(`[Discord] DM channel created: ${dmChannel.id}`)
 
     // Send message to DM channel
+    const messagePayload: any = { content, embeds: [embed] }
+    if (components.length > 0) {
+      messagePayload.components = components
+    }
+
     const messageResponse = await fetch(`${DISCORD_API_BASE}/channels/${dmChannel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bot ${DISCORD_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ content: message }),
+      body: JSON.stringify(messagePayload),
     })
 
     if (!messageResponse.ok) {

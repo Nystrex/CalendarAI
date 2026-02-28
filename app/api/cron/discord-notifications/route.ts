@@ -91,12 +91,32 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // Send Discord notification
+        // Check snooze/done state
+        const { data: state } = await supabase
+          .from("discord_notification_state")
+          .select("snoozed_until, dismissed_at")
+          .eq("user_id", user.id)
+          .eq("event_id", event.id)
+          .maybeSingle()
+
+        if (state?.dismissed_at) {
+          // Marked as done - skip
+          continue
+        }
+
+        if (state?.snoozed_until && new Date(state.snoozed_until) > now) {
+          // Still snoozed - skip
+          continue
+        }
+
+        // Send Discord notification with eventId and userId for buttons
         const success = await sendDiscordNotification(
           user.discord_id!,
           event.title,
           event.description || "",
-          new Date(event.start_time)
+          new Date(event.start_time),
+          event.id,
+          user.id
         )
 
         if (success) {
