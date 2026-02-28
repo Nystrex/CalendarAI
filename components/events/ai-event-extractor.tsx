@@ -147,6 +147,42 @@ export function AIEventExtractor({ open, onOpenChange, calendars, onEventsSaved 
     return undefined
   }
 
+  const handleSyllabusImport = async () => {
+    if (!uploadedFile || !uploadedFile.type.includes("pdf")) {
+      toast.error("Please upload a PDF syllabus file")
+      return
+    }
+
+    setIsExtracting(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", uploadedFile)
+
+      const response = await fetch("/api/ai/extract-syllabus", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to import syllabus")
+      }
+
+      toast.success(`Syllabus imported! Created ${data.eventsCreated} events for ${data.courseCode}`)
+      setUploadedFile(null)
+      setTextInput("")
+      setPreviewUrl(null)
+      onEventsSaved()
+      onOpenChange(false)
+    } catch (error) {
+      console.error("[syllabus] import error:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to import syllabus")
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
   const handleExtract = async () => {
     if (!uploadedFile && !textInput.trim()) {
       toast.error("Please upload a file or enter text to extract events from")

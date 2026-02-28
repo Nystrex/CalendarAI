@@ -70,6 +70,7 @@ import { useAppSettings } from "@/lib/hooks/use-app-settings"
 import { ensureSchoolCalendars } from "@/lib/school/ensure-school-calendars"
 import { AvatarChooser } from "@/components/settings/avatar-chooser"
 import { GoogleCalendarConnect } from "@/components/integrations/google-calendar-connect"
+import { DiscordConnect } from "@/components/integrations/discord-connect"
 import { OverviewDashboard } from "@/components/dashboard/overview-dashboard"
 import { HomeworkChat } from "@/components/homework/homework-chat" // Import HomeworkChat
 import { UniversityIntegration } from "@/components/university/university-integration" // Import UniversityIntegration
@@ -313,6 +314,38 @@ export default function DashboardPage() {
     loadCalendarsAndEvents(true)
     loadUserEmail()
   }, [dateRange, dashboardMode])
+
+  // ── Notification system for upcoming events ────────────────────────────────
+  const notifiedEventsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    const checkUpcomingEvents = () => {
+      const now = new Date()
+      const fifteenMinLater = new Date(now.getTime() + 15 * 60 * 1000)
+
+      allEvents.forEach((event) => {
+        const eventStart = new Date(event.start_time)
+        const eventId = event.id
+
+        // Only notify once per event, within 15-min window
+        if (
+          eventStart > now &&
+          eventStart <= fifteenMinLater &&
+          !notifiedEventsRef.current.has(eventId)
+        ) {
+          notifiedEventsRef.current.add(eventId)
+          const timeStr = eventStart.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          toast.info(`📅 Upcoming: ${event.title} at ${timeStr}`, {
+            description: event.description || "Your event starts in 15 minutes",
+          })
+        }
+      })
+    }
+
+    const interval = setInterval(checkUpcomingEvents, 60000) // Check every minute
+    checkUpcomingEvents() // Check immediately on load
+    return () => clearInterval(interval)
+  }, [allEvents])
 
   useEffect(() => {
     const handleFocus = () => {
@@ -571,6 +604,50 @@ export default function DashboardPage() {
     await loadCalendarsAndEvents(true)
   }
 
+  const handleEventDrop = async (event: EventType, newDate: Date) => {
+    try {
+      const supabase = createClient()
+      const oldStart = new Date(event.start_time)
+      const oldEnd = new Date(event.end_time)
+      
+      // Calculate duration
+      const duration = oldEnd.getTime() - oldStart.getTime()
+      
+      // Set new start/end times preserving duration
+      const newStart = new Date(newDate)
+      newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds())
+      const newEnd = new Date(newStart.getTime() + duration)
+
+      // Update in database
+      const { error } = await supabase
+        .from("events")
+        .update({
+          start_time: newStart.toISOString(),
+          end_time: newEnd.toISOString(),
+        })
+        .eq("id", event.id)
+
+      if (error) throw error
+
+      // Sync to Google Calendar if connected
+      try {
+        await fetch("/api/google/events/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: event.id }),
+        })
+      } catch (err) {
+        console.error("Failed to sync to Google:", err)
+      }
+
+      toast.success(`${event.title} rescheduled to ${newDate.toLocaleDateString()}`)
+      await loadCalendarsAndEvents(true)
+    } catch (error) {
+      console.error("Error rescheduling event:", error)
+      toast.error("Failed to reschedule event")
+    }
+  }
+
   const checkGoogleConnection = async () => {
     try {
       const supabase = createClient()
@@ -745,7 +822,10 @@ export default function DashboardPage() {
               <Link2 className="h-5 w-5" />
               Integrations
             </h2>
-            <GoogleCalendarConnect isConnected={isGoogleConnected} onConnectionChange={checkGoogleConnection} />
+            <div className="space-y-4">
+              <GoogleCalendarConnect isConnected={isGoogleConnected} onConnectionChange={checkGoogleConnection} />
+              {userId && <DiscordConnect userId={userId} />}
+            </div>
           </section>
 
           {/* Support */}
@@ -818,9 +898,9 @@ export default function DashboardPage() {
   const renderCalendarView = () => {
     switch (view) {
       case "month":
-        return <MonthView currentDate={currentDate} events={filteredEvents} onDateClick={handleDateClick} onEventClick={handleEventClick} />
+        return <MonthView currentDate={currentDate} events={filteredEvents} onDateClick={handleDateClick} onEventClick={handleEventClick} onEventDrop={handleEventDrop} />
       case "week":
-        return <WeekView currentDate={currentDate} events={filteredEvents} onTimeSlotClick={(date, hour) => handleTimeSlotClick(date, hour)} onEventClick={handleEventClick} />
+        return <WeekView currentDate={currentDate} events={filteredEvents} onTimeSlotClick={(date, hour) => handleTimeSlotClick(date, hour)} onEventClick={handleEventClick} onEventDrop={handleEventDrop} />
       case "day":
         return <DayView currentDate={currentDate} events={filteredEvents} onTimeSlotClick={handleTimeSlotClick} onEventClick={handleEventClick} />
       case "year":

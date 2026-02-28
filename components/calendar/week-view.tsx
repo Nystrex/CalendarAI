@@ -14,9 +14,10 @@ interface WeekViewProps {
   events: Event[]
   onTimeSlotClick: (date: Date, hour: number) => void
   onEventClick: (event: Event) => void
+  onEventDrop?: (event: Event, newDate: Date) => void
 }
 
-export function WeekView({ currentDate, events, onTimeSlotClick, onEventClick }: WeekViewProps) {
+export function WeekView({ currentDate, events, onTimeSlotClick, onEventClick, onEventDrop }: WeekViewProps) {
   const weekDays = getWeekDays(currentDate)
   const hours = getDayHours()
 
@@ -30,6 +31,25 @@ export function WeekView({ currentDate, events, onTimeSlotClick, onEventClick }:
         eventStart.getHours() === hour
       )
     })
+  }
+
+  const handleDragStart = (e: React.DragEvent, event: Event) => {
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("eventId", event.id)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  const handleDrop = (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault()
+    const eventId = e.dataTransfer.getData("eventId")
+    const event = events.find((ev) => ev.id === eventId)
+    if (event && onEventDrop) {
+      onEventDrop(event, targetDate)
+    }
   }
 
   return (
@@ -64,11 +84,15 @@ export function WeekView({ currentDate, events, onTimeSlotClick, onEventClick }:
                   key={`${day.toISOString()}-${hour}`}
                   className="relative min-h-16 border-r p-1 last:border-r-0 cursor-pointer hover:bg-accent/50 transition-colors"
                   onClick={() => onTimeSlotClick(day, hour)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, day)}
                 >
                   {dayEvents.map((event) => (
                     <div
                       key={event.id}
-                      className="mb-1 rounded p-1 text-xs text-white cursor-pointer hover:opacity-90"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, event)}
+                      className="mb-1 rounded p-1 text-xs text-white cursor-move hover:opacity-80 transition-opacity"
                       style={{ backgroundColor: event.calendar?.color || "#3b82f6" }}
                       onClick={(e) => {
                         e.stopPropagation()

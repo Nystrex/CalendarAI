@@ -50,6 +50,7 @@ import { AdminSupportPanel } from "./admin-support-panel"
 import { AdminConfigPanel } from "./admin-config-panel"
 import { AdminLMSPanel } from "./admin-lms-panel"
 import { AdminImpersonationPanel } from "./admin-impersonation-panel"
+import { DiscordMessageSender } from "./discord-message-sender"
 import { ToDoList } from "../to-do-list"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -951,6 +952,8 @@ export function AdminPanel({ userEmail }: { userEmail: string }) {
                   users={stats.users}
                   currentAdminEmail={userEmail}
                 />
+                
+                <DiscordMessageSender adminPassword={password} />
               </TabsContent>
 
               {/* System Tab */}

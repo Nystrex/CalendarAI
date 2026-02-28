@@ -14,9 +14,10 @@ interface MonthViewProps {
   events: Event[]
   onDateClick: (date: Date) => void
   onEventClick: (event: Event) => void
+  onEventDrop?: (event: Event, newDate: Date) => void
 }
 
-export function MonthView({ currentDate, events, onDateClick, onEventClick }: MonthViewProps) {
+export function MonthView({ currentDate, events, onDateClick, onEventClick, onEventDrop }: MonthViewProps) {
   const days = getCalendarDays(currentDate)
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   const weekDaysMobile = ["S", "M", "T", "W", "T", "F", "S"]
@@ -30,6 +31,25 @@ export function MonthView({ currentDate, events, onDateClick, onEventClick }: Mo
         eventDate.getFullYear() === date.getFullYear()
       )
     })
+  }
+
+  const handleDragStart = (e: React.DragEvent, event: Event) => {
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("eventId", event.id)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }
+
+  const handleDrop = (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault()
+    const eventId = e.dataTransfer.getData("eventId")
+    const event = events.find((ev) => ev.id === eventId)
+    if (event && onEventDrop) {
+      onEventDrop(event, targetDate)
+    }
   }
 
   return (
@@ -58,6 +78,8 @@ export function MonthView({ currentDate, events, onDateClick, onEventClick }: Mo
                 "cursor-pointer transition-colors hover:bg-accent/50",
               )}
               onClick={() => onDateClick(day)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, day)}
             >
               <div className="flex items-center justify-center md:justify-start md:mb-1">
                 <span
@@ -91,7 +113,9 @@ export function MonthView({ currentDate, events, onDateClick, onEventClick }: Mo
                   {dayEvents.slice(0, 2).map((event) => (
                     <div
                       key={event.id}
-                      className="truncate rounded px-1 py-0.5 text-xs text-white"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, event)}
+                      className="truncate rounded px-1 py-0.5 text-xs text-white cursor-move hover:opacity-80 transition-opacity"
                       style={{ backgroundColor: event.calendar?.color || "#3b82f6" }}
                       onClick={(e) => {
                         e.stopPropagation()
