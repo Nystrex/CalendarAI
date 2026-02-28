@@ -121,6 +121,12 @@ export function OverviewDashboard({
       })
       .sort((a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime())
 
+    console.log('Focus Now - Top 5 upcoming events:', upcoming.slice(0, 5).map(e => ({
+      title: e.title,
+      end_time: e.end_time,
+      end_date: new Date(e.end_time).toLocaleString()
+    })))
+
     return upcoming[0] || null
   }, [events, calendars])
 
@@ -249,6 +255,9 @@ export function OverviewDashboard({
                       : getDaysUntil(focusNow) === 1
                         ? "Due Tomorrow"
                         : `${getDaysUntil(focusNow)} days left`}
+                  </Badge>
+                  <Badge variant="outline" className="border-muted-foreground/30 text-xs">
+                    Due: {format(new Date(focusNow.end_time), "MMM d, yyyy")}
                   </Badge>
                   {focusNow.calendar && (
                     <Badge variant="outline" className="border-muted-foreground/30 text-xs">
