@@ -21,6 +21,10 @@ import {
 } from "lucide-react"
 import type { Database } from "@/lib/types/database"
 import { format, startOfDay, addDays, startOfWeek, endOfWeek, differenceInDays, isSameDay, subDays } from "date-fns"
+import { QuickActions } from "./quick-actions"
+import { ActivityHeatmap } from "./activity-heatmap"
+import { ProductivityStats } from "./productivity-stats"
+import { KeyboardShortcuts, KeyboardShortcutsTrigger } from "./keyboard-shortcuts"
 
 type Event = Database["public"]["Tables"]["events"]["Row"] & {
   calendar?: { color: string; name?: string }
@@ -49,6 +53,7 @@ export function OverviewDashboard({
   onViewCalendar,
 }: OverviewDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const today = startOfDay(new Date())
   const weekStart = startOfWeek(today, { weekStartsOn: 0 })
@@ -557,6 +562,35 @@ export function OverviewDashboard({
             </div>
           )}
         </Card>
+
+        {/* Quick Actions Widget - Full Width */}
+        <div className="md:col-span-4 lg:col-span-6">
+          <QuickActions
+            onNewEvent={onNewEvent}
+            onMassEvent={onMassEvent}
+            onAIExtract={onAIExtract}
+            onMarkAsDone={onMarkAsDone}
+            onViewCalendar={onViewCalendar}
+          />
+        </div>
+
+        {/* Activity Heatmap - Full Width */}
+        <div className="md:col-span-4 lg:col-span-6">
+          <ActivityHeatmap events={events} />
+        </div>
+
+        {/* Productivity Stats - Full Width */}
+        <div className="md:col-span-4 lg:col-span-6">
+          <ProductivityStats events={events} />
+        </div>
+      </div>
+
+      {/* Keyboard Shortcuts Dialog */}
+      <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+
+      {/* Floating Keyboard Shortcuts Button */}
+      <div className="fixed bottom-20 md:bottom-6 right-4 z-30">
+        <KeyboardShortcutsTrigger onClick={() => setShortcutsOpen(true)} />
       </div>
     </div>
   )
