@@ -76,6 +76,7 @@ import { HomeworkChat } from "@/components/homework/homework-chat" // Import Hom
 import { UniversityIntegration } from "@/components/university/university-integration" // Import UniversityIntegration
 import { SchoolDashboard } from "@/components/school/school-dashboard"
 import { SchoolCalendarPanel } from "@/components/school/school-calendar-panel"
+import { MobileNav } from "@/components/dashboard/mobile-nav"
 
 type EventType = Database["public"]["Tables"]["events"]["Row"] & {
   calendar?: { color: string; name?: string }
@@ -174,6 +175,15 @@ export default function DashboardPage() {
   useEffect(() => {
     detectTimezone()
     checkGoogleConnection()
+    
+    // Clean up auth tokens from URL hash (from magic link redirects)
+    if (window.location.hash) {
+      const hash = window.location.hash
+      if (hash.includes('access_token') || hash.includes('refresh_token')) {
+        // Remove the hash from URL
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -1024,7 +1034,7 @@ export default function DashboardPage() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 overflow-auto pb-20 md:pb-0">
         {/* Mobile Header */}
         <header className="md:hidden border-b bg-card/50 backdrop-blur-sm px-2 py-2">
           <div className="flex items-center gap-2 overflow-x-auto">
@@ -1175,7 +1185,7 @@ export default function DashboardPage() {
             <UniversityIntegration />
           </div>
         )}
-      </div>
+      </main>
 
       {dashboardMode === "calendar" && (
         <div className="md:hidden fixed bottom-4 right-4 flex flex-col gap-2 z-40">
@@ -1284,6 +1294,13 @@ export default function DashboardPage() {
 
       {/* Onboarding Guide */}
       <OnboardingGuide open={showOnboarding} onComplete={handleCompleteOnboarding} />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNav 
+        dashboardMode={dashboardMode} 
+        setDashboardMode={setDashboardMode}
+        isLmsEnabled={isLmsEnabled}
+      />
     </div>
   )
 }

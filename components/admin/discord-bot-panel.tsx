@@ -123,113 +123,135 @@ export function DiscordBotPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Discord Bot</CardTitle>
-          <CardDescription>Configure bot behavior and send messages to your server</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Timezone</Label>
-              <Input value={settings.timezone} onChange={(e) => setSettings(s => ({ ...s, timezone: e.target.value }))} />
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="text-sm font-medium">Quiet Hours</p>
-                <p className="text-xs text-muted-foreground">Don’t DM during these hours (EST default)</p>
-              </div>
-              <Switch checked={settings.quiet_hours_enabled} onCheckedChange={(v) => setSettings(s => ({ ...s, quiet_hours_enabled: v }))} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Quiet Start</Label>
-              <Input type="time" value={settings.quiet_hours_start} onChange={(e) => setSettings(s => ({ ...s, quiet_hours_start: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Quiet End</Label>
-              <Input type="time" value={settings.quiet_hours_end} onChange={(e) => setSettings(s => ({ ...s, quiet_hours_end: e.target.value }))} />
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-3 md:col-span-2">
-              <div>
-                <p className="text-sm font-medium">Weekly Digest</p>
-                <p className="text-xs text-muted-foreground">Send weekly upcoming events digest</p>
-              </div>
-              <Switch checked={settings.weekly_digest_enabled} onCheckedChange={(v) => setSettings(s => ({ ...s, weekly_digest_enabled: v }))} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Send Message to Channel</CardTitle>
-          <CardDescription>Pick any channel and send as embed or plain text. Add image URLs or upload files.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchChannels} disabled={loadingChannels}>
-              {loadingChannels ? "Loading..." : "Refresh Channels"}
-            </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base sm:text-lg">Discord Bot Tools</CardTitle>
+        <CardDescription className="text-sm">Send messages to Discord channels with embeds and images</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 sm:space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Timezone</Label>
+            <Input value={settings.timezone} onChange={(e) => setSettings(s => ({ ...s, timezone: e.target.value }))} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Channel</Label>
-              <select
-                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                value={sendChannelId}
-                onChange={(e) => setSendChannelId(e.target.value)}
-              >
-                <option value="">Select a channel</option>
-                {channels.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    #{c.name} ({c.id})
-                  </option>
-                ))}
-              </select>
-              <div className="mt-2">
-                <Label>Or paste Channel ID</Label>
-                <Input value={sendChannelId} onChange={(e) => setSendChannelId(e.target.value)} placeholder="123..." />
-              </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Quiet Hours</p>
+              <p className="text-xs text-muted-foreground">Don’t DM during these hours (EST default)</p>
             </div>
-
-            <div className="space-y-2">
-              <Label>Embed Title</Label>
-              <Input value={embedTitle} onChange={(e) => setEmbedTitle(e.target.value)} />
-
-              <div className="flex items-center justify-between rounded-lg border p-3 mt-3">
-                <div>
-                  <p className="text-sm font-medium">Send as embed</p>
-                  <p className="text-xs text-muted-foreground">If off, will send plain text</p>
-                </div>
-                <Switch checked={sendAsEmbed} onCheckedChange={setSendAsEmbed} />
-              </div>
-            </div>
+            <Switch checked={settings.quiet_hours_enabled} onCheckedChange={(v) => setSettings(s => ({ ...s, quiet_hours_enabled: v }))} />
           </div>
 
           <div className="space-y-2">
-            <Label>Message</Label>
-            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
+            <Label>Quiet Start</Label>
+            <Input type="time" value={settings.quiet_hours_start} onChange={(e) => setSettings(s => ({ ...s, quiet_hours_start: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Quiet End</Label>
+            <Input type="time" value={settings.quiet_hours_end} onChange={(e) => setSettings(s => ({ ...s, quiet_hours_end: e.target.value }))} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Image URLs (one per line)</Label>
-              <Textarea value={imageUrlsText} onChange={(e) => setImageUrlsText(e.target.value)} rows={4} placeholder="https://..." />
+          <div className="flex items-center justify-between rounded-lg border p-3 md:col-span-2">
+            <div>
+              <p className="text-sm font-medium">Weekly Digest</p>
+              <p className="text-xs text-muted-foreground">Send weekly upcoming events digest</p>
             </div>
-            <div className="space-y-2">
-              <Label>Upload images</Label>
-              <Input type="file" accept="image/*" multiple onChange={(e) => setFiles(e.target.files)} />
-            </div>
+            <Switch checked={settings.weekly_digest_enabled} onCheckedChange={(v) => setSettings(s => ({ ...s, weekly_digest_enabled: v }))} />
           </div>
+        </div>
 
-          <Button onClick={handleSend}>Send</Button>
-        </CardContent>
-      </Card>
-    </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchChannels} disabled={loadingChannels}>
+            {loadingChannels ? "Loading..." : "Refresh Channels"}
+          </Button>
+        </div>
+
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="channel" className="text-sm">Channel</Label>
+            <select
+              id="channel"
+              value={sendChannelId}
+              onChange={(e) => setSendChannelId(e.target.value)}
+              className="w-full h-9 sm:h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              disabled={loadingChannels}
+            >
+              <option value="">Select a channel...</option>
+              {channels.filter(c => c.type === 0).map(c => (
+                <option key={c.id} value={c.id}>#{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="channel-id" className="text-sm">Or paste Channel ID</Label>
+            <Input
+              id="channel-id"
+              placeholder="1234567890"
+              value={sendChannelId}
+              onChange={(e) => setSendChannelId(e.target.value)}
+              className="h-9 sm:h-10"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch checked={sendAsEmbed} onCheckedChange={setSendAsEmbed} id="embed-toggle" />
+          <Label htmlFor="embed-toggle" className="text-sm">Send as embed (rich formatting)</Label>
+        </div>
+
+        {sendAsEmbed && (
+          <div className="space-y-2">
+            <Label htmlFor="embed-title" className="text-sm">Embed Title</Label>
+            <Input
+              id="embed-title"
+              placeholder="Announcement"
+              value={embedTitle}
+              onChange={(e) => setEmbedTitle(e.target.value)}
+              className="h-9 sm:h-10"
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="message" className="text-sm">Message</Label>
+          <Textarea
+            id="message"
+            placeholder="Your message here..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={3}
+            className="text-sm sm:text-base"
+          />
+        </div>
+
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="image-urls" className="text-sm">Image URLs (one per line)</Label>
+            <Textarea
+              id="image-urls"
+              placeholder="https://example.com/image.png"
+              value={imageUrlsText}
+              onChange={(e) => setImageUrlsText(e.target.value)}
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="file-upload" className="text-sm">Or upload images</Label>
+            <Input
+              id="file-upload"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(e) => setFiles(e.target.files)}
+              className="h-9 sm:h-10 text-sm"
+            />
+          </div>
+        </div>
+
+        <Button onClick={handleSend} className="w-full h-9 sm:h-10 text-sm sm:text-base">Send Message</Button>
+      </CardContent>
+    </Card>
   )
 }
