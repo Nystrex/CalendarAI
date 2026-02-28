@@ -21,13 +21,13 @@ export async function sendDiscordNotification(
     console.log(`[Discord] Attempting to send DM to user ${discordId}`)
 
     // Send DM via Discord API
-    const response = await fetch(`${DISCORD_API_BASE}/users/${discordId}/channels`, {
+    const response = await fetch(`${DISCORD_API_BASE}/users/@me/channels`, {
       method: "POST",
       headers: {
         Authorization: `Bot ${DISCORD_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({}), // Discord requires empty JSON body
+      body: JSON.stringify({ recipient_id: discordId }),
     })
 
     if (!response.ok) {

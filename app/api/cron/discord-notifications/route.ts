@@ -19,7 +19,11 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient()
     const now = new Date()
-    const fifteenMinutesFromNow = new Date(now.getTime() + 15 * 60 * 1000)
+    // Window: send notifications whose target time falls within [now - 1m, now + 5m]
+    const windowStart = new Date(now.getTime() - 1 * 60 * 1000)
+    const windowEnd = new Date(now.getTime() + 5 * 60 * 1000)
+    // Only look ahead up to 7 days to keep queries light
+    const horizonEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
     // Get all users with Discord enabled
     const { data: usersWithDiscord, error: usersError } = await supabase
@@ -44,14 +48,14 @@ export async function GET(request: NextRequest) {
     let notificationsSent = 0
     let errors: string[] = []
 
-    // For each user, check for upcoming events
+    // For each user, check upcoming events and compute per-event reminder window
     for (const user of usersWithDiscord) {
       const { data: events, error: eventsError } = await supabase
         .from("events")
-        .select("id, title, description, start_time")
+        .select("id, title, description, start_time, reminder_minutes")
         .eq("user_id", user.id)
         .gte("start_time", now.toISOString())
-        .lte("start_time", fifteenMinutesFromNow.toISOString())
+        .lte("start_time", horizonEnd.toISOString())
 
       if (eventsError) {
         console.error(`[cron/discord] Error fetching events for user ${user.id}:`, eventsError)
@@ -63,8 +67,18 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Check which events have already been notified
+      // Filter events whose target send time is within the window
       for (const event of events) {
+        const remindMinutes = (event as any).reminder_minutes ?? 15
+        const eventStart = new Date(event.start_time)
+        const targetSendTime = new Date(eventStart.getTime() - remindMinutes * 60 * 1000)
+
+        // Skip if not within window
+        if (targetSendTime < windowStart || targetSendTime > windowEnd) {
+          continue
+        }
+
+        // Check which events have already been notified
         const { data: notified } = await supabase
           .from("discord_notifications")
           .select("id")
