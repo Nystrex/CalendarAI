@@ -112,16 +112,17 @@ export function OverviewDashboard({
       (c) => c.name.toLowerCase().includes("completed") || c.name.toLowerCase().includes("done"),
     )
 
+    const now = new Date()
     const upcoming = events
       .filter((e) => {
         if (completedCalendar && e.calendar_id === completedCalendar.id) return false
-        const eventDate = new Date(e.start_time)
-        return eventDate >= startOfDay(today)
+        const eventEndDate = new Date(e.end_time)
+        return eventEndDate >= now
       })
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      .sort((a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime())
 
     return upcoming[0] || null
-  }, [events, calendars, today])
+  }, [events, calendars])
 
   const workloadBalance = useMemo(() => {
     if (!weeklyHeatMap || !Array.isArray(weeklyHeatMap) || weeklyHeatMap.length === 0) {
@@ -182,15 +183,16 @@ export function OverviewDashboard({
       (c) => c.name.toLowerCase().includes("completed") || c.name.toLowerCase().includes("done"),
     )
 
+    const now = new Date()
     return events
       .filter((e) => {
         if (completedCalendar && e.calendar_id === completedCalendar.id) return false
-        const eventDate = new Date(e.start_time)
-        return eventDate >= startOfDay(today)
+        const eventEndDate = new Date(e.end_time)
+        return eventEndDate >= now
       })
-      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      .sort((a, b) => new Date(a.end_time).getTime() - new Date(b.end_time).getTime())
       .slice(0, 6)
-  }, [events, calendars, today])
+  }, [events, calendars])
 
   // Filtered search results
   const searchResults = useMemo(() => {
@@ -215,8 +217,9 @@ export function OverviewDashboard({
   }
 
   const getDaysUntil = (event: Event) => {
-    const eventDay = startOfDay(new Date(event.start_time))
-    return differenceInDays(eventDay, today)
+    const eventDay = startOfDay(new Date(event.end_time))
+    const now = startOfDay(new Date())
+    return differenceInDays(eventDay, now)
   }
 
   return (
