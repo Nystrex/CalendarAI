@@ -3,14 +3,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { toast } from "sonner"
-import { CalendarDays, CheckCircle2, ClipboardList, Download, GraduationCap, Pencil, PenLine, Plus, Timer, Trash2, X } from "lucide-react"
+import { CalendarDays, CheckCircle2, ClipboardList, Download, GraduationCap, Pencil, PenLine, Plus, Timer, Trash2, X, BookOpen, FileText, FlaskConical, TrendingUp, Target, Award, BarChart3, Sparkles } from "lucide-react"
 
 type ItemType = "assignment" | "quiz" | "exam"
 
@@ -787,22 +788,78 @@ export function SchoolDashboard() {
     )
   }
 
+  const totalItems = items.length
+  const completedItems = items.filter((i) => i.is_completed).length
+  const completionRate = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+  const upcomingItems = items.filter((i) => !i.is_completed && i.due_at && new Date(i.due_at) > new Date()).length
+
+  const courseColors = ['from-blue-500/20 to-blue-600/5 border-blue-500/30', 'from-purple-500/20 to-purple-600/5 border-purple-500/30', 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/30', 'from-amber-500/20 to-amber-600/5 border-amber-500/30', 'from-pink-500/20 to-pink-600/5 border-pink-500/30', 'from-cyan-500/20 to-cyan-600/5 border-cyan-500/30']
+  const courseAccents = ['text-blue-500', 'text-purple-500', 'text-emerald-500', 'text-amber-500', 'text-pink-500', 'text-cyan-500']
+
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-3 md:p-6 space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold">School</h1>
-          <p className="text-muted-foreground">Manage assignments, quizzes, exams, and grades</p>
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20">
+              <GraduationCap className="h-7 w-7 text-primary" />
+            </div>
+            School
+          </h1>
+          <p className="text-muted-foreground mt-1">Manage assignments, quizzes, exams, and grades</p>
         </div>
       </div>
 
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-2 bg-gradient-to-br from-blue-500/10 to-transparent">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-blue-500" />
+              <p className="text-xs text-muted-foreground">Courses</p>
+            </div>
+            <p className="text-2xl font-bold">{courses.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-2 bg-gradient-to-br from-purple-500/10 to-transparent">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="h-4 w-4 text-purple-500" />
+              <p className="text-xs text-muted-foreground">Total Items</p>
+            </div>
+            <p className="text-2xl font-bold">{totalItems}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-2 bg-gradient-to-br from-green-500/10 to-transparent">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <p className="text-xs text-muted-foreground">Completed</p>
+            </div>
+            <p className="text-2xl font-bold">{completionRate}%</p>
+          </CardContent>
+        </Card>
+        <Card className="border-2 bg-gradient-to-br from-amber-500/10 to-transparent">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="h-4 w-4 text-amber-500" />
+              <p className="text-xs text-muted-foreground">Upcoming</p>
+            </div>
+            <p className="text-2xl font-bold">{upcomingItems}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        {/* Courses Card */}
+        <Card className="border-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <GraduationCap className="h-5 w-5" />
+              <GraduationCap className="h-5 w-5 text-primary" />
               Courses
             </CardTitle>
+            <CardDescription>Your enrolled courses this semester</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
@@ -826,33 +883,50 @@ export function SchoolDashboard() {
 
             <div className="space-y-2">
               {courses.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No courses yet</div>
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <GraduationCap className="h-10 w-10 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">No courses yet</p>
+                  <p className="text-xs text-muted-foreground/70">Add your first course above</p>
+                </div>
               ) : (
-                courses.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">{c.code}</div>
-                      <div className="text-sm text-muted-foreground">{c.name}</div>
+                courses.map((c, idx) => {
+                  const colorClass = courseColors[idx % courseColors.length]
+                  const accentClass = courseAccents[idx % courseAccents.length]
+                  const courseItemCount = items.filter((i) => i.course_id === c.id).length
+                  const courseCompletedCount = items.filter((i) => i.course_id === c.id && i.is_completed).length
+                  return (
+                    <div key={c.id} className={`flex items-center justify-between rounded-xl border-2 p-3 bg-gradient-to-r ${colorClass} transition-all hover:scale-[1.01]`}>
+                      <div className="min-w-0 flex-1">
+                        <div className={`font-semibold ${accentClass}`}>{c.code}</div>
+                        <div className="text-sm text-muted-foreground">{c.name}</div>
+                        {courseItemCount > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {courseCompletedCount}/{courseItemCount} items done
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {c.term && <Badge variant="secondary" className="font-medium">{c.term}</Badge>}
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => deleteCourse(c.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {c.term && <Badge variant="secondary">{c.term}</Badge>}
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteCourse(c.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Quick Add Card */}
+        <Card className="border-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
+              <ClipboardList className="h-5 w-5 text-primary" />
               Quick Add
             </CardTitle>
+            <CardDescription>Create a new assignment, quiz, or exam</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3">
@@ -863,9 +937,9 @@ export function SchoolDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="assignment">Assignment</SelectItem>
-                    <SelectItem value="quiz">Quiz</SelectItem>
-                    <SelectItem value="exam">Exam</SelectItem>
+                    <SelectItem value="assignment">📝 Assignment</SelectItem>
+                    <SelectItem value="quiz">📋 Quiz</SelectItem>
+                    <SelectItem value="exam">📖 Exam</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -919,8 +993,8 @@ export function SchoolDashboard() {
                 Create
               </Button>
 
-              <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground flex items-start gap-2">
-                <Timer className="h-4 w-4 mt-0.5" />
+              <div className="rounded-xl border-2 bg-muted/20 p-3 text-sm text-muted-foreground flex items-start gap-2">
+                <Timer className="h-4 w-4 mt-0.5 text-primary" />
                 <div>
                   Default reminders:
                   <div className="font-medium text-foreground">1 day + 2 hours</div>
@@ -932,10 +1006,13 @@ export function SchoolDashboard() {
       </div>
 
       {editingItem && (
-        <Card className="border-primary">
+        <Card className="border-2 border-primary/50 bg-gradient-to-br from-primary/5 to-transparent">
           <CardHeader>
             <CardTitle className="text-sm flex items-center justify-between">
-              Edit: {editingItem.title}
+              <span className="flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-primary" />
+                Edit: {editingItem.title}
+              </span>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingItem(null)}><X className="h-4 w-4" /></Button>
             </CardTitle>
           </CardHeader>
@@ -968,12 +1045,27 @@ export function SchoolDashboard() {
 
       <Tabs defaultValue="assignments" className="space-y-4">
         <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex w-max">
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
-            <TabsTrigger value="exams">Exams</TabsTrigger>
-            <TabsTrigger value="grades">Grades</TabsTrigger>
-            <TabsTrigger value="gpa">GPA</TabsTrigger>
+          <TabsList className="inline-flex w-max h-auto p-1 gap-1">
+            <TabsTrigger value="assignments" className="flex items-center gap-1.5 px-3 py-2">
+              <FileText className="h-3.5 w-3.5" />
+              Assignments
+            </TabsTrigger>
+            <TabsTrigger value="quizzes" className="flex items-center gap-1.5 px-3 py-2">
+              <FlaskConical className="h-3.5 w-3.5" />
+              Quizzes
+            </TabsTrigger>
+            <TabsTrigger value="exams" className="flex items-center gap-1.5 px-3 py-2">
+              <BookOpen className="h-3.5 w-3.5" />
+              Exams
+            </TabsTrigger>
+            <TabsTrigger value="grades" className="flex items-center gap-1.5 px-3 py-2">
+              <BarChart3 className="h-3.5 w-3.5" />
+              Grades
+            </TabsTrigger>
+            <TabsTrigger value="gpa" className="flex items-center gap-1.5 px-3 py-2">
+              <Award className="h-3.5 w-3.5" />
+              GPA
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -988,12 +1080,13 @@ export function SchoolDashboard() {
         </TabsContent>
         <TabsContent value="grades">
           <div className="space-y-4">
-            <Card>
+            <Card className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5" />
+                  <BarChart3 className="h-5 w-5 text-primary" />
                   Grades
                 </CardTitle>
+                <CardDescription>Track your grades by course and category</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
@@ -1013,42 +1106,61 @@ export function SchoolDashboard() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Summary</CardTitle>
+                  <Card className="border-2 bg-gradient-to-br from-green-500/5 to-transparent">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                        Summary
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-muted-foreground">Total weight</span>
-                        <Badge variant={gradeSummary.totalWeight === 100 ? "default" : "secondary"}>
+                        <Badge variant={gradeSummary.totalWeight === 100 ? "default" : "secondary"} className={gradeSummary.totalWeight === 100 ? "bg-green-500/20 text-green-500 border-green-500/30" : ""}>
                           {gradeSummary.totalWeight.toFixed(0)}%
                         </Badge>
                       </div>
-                      <div className="flex items-center justify-between">
+                      {gradeSummary.totalWeight > 0 && (
+                        <Progress value={gradeSummary.totalWeight} className="h-1.5" />
+                      )}
+                      <div className="flex items-center justify-between pt-1">
                         <span className="text-sm text-muted-foreground">Current grade</span>
                         <span className="font-semibold flex items-center gap-2">
-                          {gradeSummary.currentPercent === null ? "—" : (
+                          {gradeSummary.currentPercent === null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
                             <>
-                              {gradeSummary.currentPercent.toFixed(1)}%
-                              <span className={`text-sm font-bold ${letterGradeColor(letterGrade(gradeSummary.currentPercent))}`}>
+                              <span className="text-lg">{gradeSummary.currentPercent.toFixed(1)}%</span>
+                              <Badge className={`text-xs font-bold ${
+                                letterGrade(gradeSummary.currentPercent).startsWith("A") ? "bg-green-500/20 text-green-500 border-green-500/30" :
+                                letterGrade(gradeSummary.currentPercent).startsWith("B") ? "bg-blue-500/20 text-blue-500 border-blue-500/30" :
+                                letterGrade(gradeSummary.currentPercent).startsWith("C") ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" :
+                                "bg-red-500/20 text-red-500 border-red-500/30"
+                              }`}>
                                 {letterGrade(gradeSummary.currentPercent)}
-                              </span>
+                              </Badge>
                             </>
                           )}
                         </span>
                       </div>
                       {whatIfProjectedPercent !== null && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">What-if</span>
-                          <span className="font-semibold">{whatIfProjectedPercent.toFixed(1)}%</span>
+                        <div className="flex items-center justify-between border-t pt-2">
+                          <span className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-amber-500" />
+                            What-if projection
+                          </span>
+                          <span className="font-semibold text-amber-500">{whatIfProjectedPercent.toFixed(1)}%</span>
                         </div>
                       )}
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">What-if</CardTitle>
+                  <Card className="border-2 bg-gradient-to-br from-amber-500/5 to-transparent">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                        What-if Calculator
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="grid gap-2">
@@ -1076,8 +1188,8 @@ export function SchoolDashboard() {
                           <Input value={whatIfOutOf} onChange={(e) => setWhatIfOutOf(e.target.value)} placeholder="20" />
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        This is a quick projection that adds one hypothetical grade into the selected category.
+                      <div className="text-xs text-muted-foreground/80 italic">
+                        Add a hypothetical grade to see how it affects your overall mark.
                       </div>
                     </CardContent>
                   </Card>
@@ -1086,26 +1198,36 @@ export function SchoolDashboard() {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Categories (weights)</CardTitle>
+              <Card className="border-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-purple-500" />
+                    Categories (weights)
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="grid gap-2">
                     {gradeCategories.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No categories yet</div>
+                      <div className="flex flex-col items-center justify-center py-4 text-center">
+                        <Target className="h-8 w-8 text-muted-foreground/30 mb-1" />
+                        <p className="text-sm text-muted-foreground">No categories yet</p>
+                      </div>
                     ) : (
                       gradeSummary.categoryAverages.map((ca) => (
-                        <div key={ca.category.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div key={ca.category.id} className="flex items-center justify-between rounded-xl border-2 p-3 hover:bg-muted/30 transition-colors">
                           <div className="min-w-0 flex-1">
                             <div className="font-medium truncate">{ca.category.name}</div>
                             <div className="text-xs text-muted-foreground">
-                              {ca.count === 0 ? "No grades" : `${(ca.percent! * 100).toFixed(1)}% (${ca.count})`}
+                              {ca.count === 0 ? "No grades" : (
+                                <span className={letterGradeColor(letterGrade(ca.percent! * 100))}>
+                                  {(ca.percent! * 100).toFixed(1)}% ({ca.count} entries)
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{ca.category.weight_percent}%</Badge>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteGradeCategory(ca.category.id)}>
+                            <Badge variant="secondary" className="font-semibold">{ca.category.weight_percent}%</Badge>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => deleteGradeCategory(ca.category.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
@@ -1114,7 +1236,7 @@ export function SchoolDashboard() {
                     )}
                   </div>
 
-                  <div className="rounded-lg border p-3 space-y-2">
+                  <div className="rounded-xl border-2 border-dashed p-3 space-y-2">
                     <div className="grid gap-2">
                       <Label>New category</Label>
                       <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Labs" />
@@ -1127,25 +1249,31 @@ export function SchoolDashboard() {
                       <Plus className="h-4 w-4 mr-2" />
                       Add Category
                     </Button>
-                    {gradesLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
+                    {gradesLoading && <div className="text-xs text-muted-foreground animate-pulse">Loading…</div>}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
+              <Card className="border-2">
+                <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center justify-between">
-                      Grade entries
-                      <Button variant="outline" size="sm" onClick={exportGradesCSV} disabled={gradeEntries.length === 0}>
-                        <Download className="h-3.5 w-3.5 mr-1" />
-                        CSV
-                      </Button>
-                    </CardTitle>
+                    <span className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-blue-500" />
+                      Grade Entries
+                    </span>
+                    <Button variant="outline" size="sm" onClick={exportGradesCSV} disabled={gradeEntries.length === 0} className="h-7">
+                      <Download className="h-3.5 w-3.5 mr-1" />
+                      CSV
+                    </Button>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-2">
                     {gradeEntries.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">No grades yet</div>
+                      <div className="flex flex-col items-center justify-center py-4 text-center">
+                        <ClipboardList className="h-8 w-8 text-muted-foreground/30 mb-1" />
+                        <p className="text-sm text-muted-foreground">No grades yet</p>
+                      </div>
                     ) : (
                       gradeEntries.slice(0, 20).map((e) => {
                         const item = e.item_id ? itemById.get(e.item_id) : undefined
@@ -1153,7 +1281,7 @@ export function SchoolDashboard() {
                           ? (e.score / e.out_of) * 100
                           : null
                         return (
-                          <div key={e.id} className="flex items-center justify-between rounded-lg border p-3">
+                          <div key={e.id} className="flex items-center justify-between rounded-xl border-2 p-3 hover:bg-muted/30 transition-colors">
                             <div className="min-w-0 flex-1">
                               <div className="font-medium truncate">{item?.title || e.title || "Grade"}</div>
                               <div className="text-xs text-muted-foreground truncate">
@@ -1165,18 +1293,23 @@ export function SchoolDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="text-right">
-                                <div className="text-sm font-medium">
+                                <div className="text-sm font-semibold">
                                   {typeof e.score === "number" && typeof e.out_of === "number" && (e.out_of || 0) > 0
                                     ? `${e.score}/${e.out_of}`
                                     : "—"}
                                 </div>
                                 {pct !== null && (
-                                  <div className={`text-xs font-bold ${letterGradeColor(letterGrade(pct))}`}>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                                    letterGrade(pct).startsWith("A") ? "bg-green-500/10 text-green-500 border-green-500/30" :
+                                    letterGrade(pct).startsWith("B") ? "bg-blue-500/10 text-blue-500 border-blue-500/30" :
+                                    letterGrade(pct).startsWith("C") ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/30" :
+                                    "bg-red-500/10 text-red-500 border-red-500/30"
+                                  }`}>
                                     {letterGrade(pct)}
-                                  </div>
+                                  </Badge>
                                 )}
                               </div>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => deleteGradeEntry(e.id)}>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => deleteGradeEntry(e.id)}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
@@ -1299,39 +1432,63 @@ export function SchoolDashboard() {
           </div>
         </TabsContent>
         <TabsContent value="gpa">
-          <Card>
+          <Card className="border-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5" />
+                <Award className="h-5 w-5 text-primary" />
                 GPA Calculator
               </CardTitle>
+              <CardDescription>Your cumulative grade point average across all courses</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {!gpaStats ? (
-                <div className="text-sm text-muted-foreground">Add grade entries to courses to see GPA estimates.</div>
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Award className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">No GPA data yet</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Add grade entries to your courses to see GPA estimates</p>
+                </div>
               ) : (
                 <>
+                  {/* GPA Hero Card */}
+                  <div className="rounded-xl border-2 bg-gradient-to-br from-primary/10 via-purple-500/5 to-transparent p-6 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Cumulative GPA</p>
+                      <p className="text-4xl font-bold tracking-tight">{gpaStats.cumGpa.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        across {gpaStats.courseGrades.length} course{gpaStats.courseGrades.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20">
+                      <GraduationCap className="h-8 w-8 text-primary" />
+                    </div>
+                  </div>
+
+                  {/* Course Grades */}
                   <div className="space-y-2">
-                    {gpaStats.courseGrades.map(({ course, pct, gpa }) => {
+                    {gpaStats.courseGrades.map(({ course, pct, gpa }, idx) => {
                       const letter = letterGrade(pct)
+                      const colorClass = courseColors[idx % courseColors.length]
                       return (
-                        <div key={course.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div key={course.id} className={`flex items-center justify-between rounded-xl border-2 p-3 bg-gradient-to-r ${colorClass} transition-all hover:scale-[1.01]`}>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{course.code}</div>
+                            <div className="font-semibold truncate">{course.code}</div>
                             <div className="text-xs text-muted-foreground">{course.name}</div>
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-sm text-muted-foreground">{pct.toFixed(1)}%</span>
-                            <span className={`font-bold text-base ${letterGradeColor(letter)}`}>{letter}</span>
-                            <Badge variant="outline">{gpa.toFixed(1)} GPA</Badge>
+                            <Badge className={`font-bold ${
+                              letter.startsWith("A") ? "bg-green-500/20 text-green-500 border-green-500/30" :
+                              letter.startsWith("B") ? "bg-blue-500/20 text-blue-500 border-blue-500/30" :
+                              letter.startsWith("C") ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/30" :
+                              "bg-red-500/20 text-red-500 border-red-500/30"
+                            }`}>
+                              {letter}
+                            </Badge>
+                            <Badge variant="outline" className="font-semibold">{gpa.toFixed(1)}</Badge>
                           </div>
                         </div>
                       )
                     })}
-                  </div>
-                  <div className="rounded-lg border bg-muted/30 p-4 flex items-center justify-between">
-                    <span className="font-semibold">Cumulative GPA</span>
-                    <span className="text-2xl font-bold">{gpaStats.cumGpa.toFixed(2)}</span>
                   </div>
                 </>
               )}
@@ -1354,40 +1511,115 @@ function ItemsList({
   onEdit: (item: SchoolItem) => void
   onDelete: (item: SchoolItem) => void
 }) {
+  const now = new Date()
+
+  function getDueStatus(dueAt: string | null): { label: string; color: string } {
+    if (!dueAt) return { label: "", color: "" }
+    const due = new Date(dueAt)
+    const diffMs = due.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    if (diffMs < 0) return { label: "Overdue", color: "bg-red-500/15 text-red-500 border-red-500/30" }
+    if (diffDays <= 1) return { label: "Due today", color: "bg-amber-500/15 text-amber-500 border-amber-500/30" }
+    if (diffDays <= 3) return { label: `${diffDays}d left`, color: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30" }
+    if (diffDays <= 7) return { label: `${diffDays}d left`, color: "bg-blue-500/15 text-blue-500 border-blue-500/30" }
+    return { label: `${diffDays}d left`, color: "bg-muted text-muted-foreground" }
+  }
+
+  const pending = items.filter((i) => !i.is_completed)
+  const completed = items.filter((i) => i.is_completed)
+
   return (
-    <Card>
+    <Card className="border-2">
       <CardHeader>
-        <CardTitle>Upcoming</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Upcoming</span>
+          {items.length > 0 && (
+            <Badge variant="secondary" className="font-normal">
+              {pending.length} pending · {completed.length} done
+            </Badge>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {items.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No items yet</div>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <FileText className="h-10 w-10 text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">No items yet</p>
+            <p className="text-xs text-muted-foreground/70">Use Quick Add to create your first item</p>
+          </div>
         ) : (
-          items.map((i) => (
-            <div key={i.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium truncate">{i.title}</div>
-                <div className="text-sm text-muted-foreground truncate">
-                  {(i.course?.code || "Course") + (i.due_at ? ` • ${new Date(i.due_at).toLocaleString()}` : "")}
-                  {i.weight_percent != null && (
-                    <span className="ml-1 text-blue-500 font-medium">{i.weight_percent}% weight</span>
-                  )}
+          <>
+            {pending.map((i) => {
+              const dueStatus = getDueStatus(i.due_at)
+              return (
+                <div key={i.id} className="flex items-center justify-between gap-3 rounded-xl border-2 p-3 hover:bg-muted/30 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">{i.title}</div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {i.course?.code || "Course"}
+                      </Badge>
+                      {i.due_at && (
+                        <Badge variant="outline" className={`text-xs font-normal ${dueStatus.color}`}>
+                          {dueStatus.label} · {new Date(i.due_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </Badge>
+                      )}
+                      {i.weight_percent != null && (
+                        <Badge variant="outline" className="text-xs font-normal bg-blue-500/10 text-blue-500 border-blue-500/30">
+                          {i.weight_percent}% weight
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onToggle(i)}>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      Done
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onEdit(i)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => onDelete(i)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button variant={i.is_completed ? "secondary" : "outline"} size="sm" onClick={() => onToggle(i)}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                  {i.is_completed ? "Done" : "Mark done"}
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onEdit(i)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => onDelete(i)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))
+              )
+            })}
+            {completed.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">Completed</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                {completed.map((i) => (
+                  <div key={i.id} className="flex items-center justify-between gap-3 rounded-xl border p-3 opacity-60 hover:opacity-80 transition-opacity">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate line-through">{i.title}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {i.course?.code || "Course"}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs font-normal bg-green-500/10 text-green-500 border-green-500/30">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Complete
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => onToggle(i)}>
+                        Undo
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => onDelete(i)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

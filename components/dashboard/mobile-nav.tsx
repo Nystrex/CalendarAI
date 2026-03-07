@@ -11,8 +11,8 @@ import {
 } from "lucide-react"
 
 interface MobileNavProps {
-  dashboardMode: "overview" | "calendar" | "school" | "homework" | "university" | "settings"
-  setDashboardMode: (mode: "overview" | "calendar" | "school" | "homework" | "university" | "settings") => void
+  dashboardMode: "overview" | "calendar" | "school" | "homework" | "university" | "settings" | "study" | "achievements" | "templates" | "ai"
+  setDashboardMode: (mode: "overview" | "calendar" | "school" | "homework" | "university" | "settings" | "study" | "achievements" | "templates" | "ai") => void
   isLmsEnabled: boolean
 }
 

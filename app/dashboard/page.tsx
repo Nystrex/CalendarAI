@@ -60,6 +60,9 @@ import {
   Info,
   BookOpen,
   ClipboardList,
+  Trophy,
+  Layout,
+  Trash2,
 } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
@@ -77,6 +80,10 @@ import { UniversityIntegration } from "@/components/university/university-integr
 import { SchoolDashboard } from "@/components/school/school-dashboard"
 import { SchoolCalendarPanel } from "@/components/school/school-calendar-panel"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
+import { StudyPlanner } from "@/components/study/study-planner"
+import { GamificationPanel } from "@/components/gamification/gamification-panel"
+import { CalendarTemplates } from "@/components/templates/calendar-templates"
+import { AIAssistantPanel } from "@/components/ai/ai-assistant-panel"
 
 type EventType = Database["public"]["Tables"]["events"]["Row"] & {
   calendar?: { color: string; name?: string }
@@ -140,7 +147,7 @@ export default function DashboardPage() {
   const [trialEligible, setTrialEligible] = useState(false)
   const [onboardingCompleted, setOnboardingCompleted] = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [dashboardMode, setDashboardMode] = useState<"overview" | "calendar" | "school" | "homework" | "university" | "settings">("overview")
+  const [dashboardMode, setDashboardMode] = useState<"overview" | "calendar" | "school" | "homework" | "university" | "settings" | "study" | "achievements" | "templates" | "ai">("overview")
   const [isGoogleConnected, setIsGoogleConnected] = useState(false)
   const [defaultView, setDefaultView] = useState("month")
   const [weekStartsOn, setWeekStartsOn] = useState("sunday")
@@ -815,6 +822,38 @@ export default function DashboardPage() {
                     <option value="24">24-hour</option>
                   </select>
                 </div>
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-destructive">Delete All Events</p>
+                      <p className="text-sm text-muted-foreground">Remove all calendars and events, then recreate default calendars</p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      onClick={async () => {
+                        if (!confirm("Are you sure you want to delete ALL events and calendars? This action cannot be undone.")) {
+                          return
+                        }
+                        try {
+                          const response = await fetch("/api/calendars/delete-all", { method: "POST" })
+                          const data = await response.json()
+                          if (data.success) {
+                            toast.success("All events deleted and calendars recreated")
+                            window.location.reload()
+                          } else {
+                            toast.error(data.error || "Failed to delete events")
+                          }
+                        } catch (error) {
+                          console.error("Delete error:", error)
+                          toast.error("Failed to delete events")
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete All
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </section>
@@ -1015,6 +1054,38 @@ export default function DashboardPage() {
             </Button>
           )}
           <Button
+            variant={dashboardMode === "study" ? "secondary" : "ghost"}
+            className={`w-full justify-start transition-all ${dashboardMode === "study" ? "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/15" : "hover:bg-muted/50"}`}
+            onClick={() => setDashboardMode("study")}
+          >
+            <BookOpen className="h-4 w-4 shrink-0" />
+            <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Study Planner</span>
+          </Button>
+          <Button
+            variant={dashboardMode === "achievements" ? "secondary" : "ghost"}
+            className={`w-full justify-start transition-all ${dashboardMode === "achievements" ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/15" : "hover:bg-muted/50"}`}
+            onClick={() => setDashboardMode("achievements")}
+          >
+            <Trophy className="h-4 w-4 shrink-0" />
+            <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Achievements</span>
+          </Button>
+          <Button
+            variant={dashboardMode === "ai" ? "secondary" : "ghost"}
+            className={`w-full justify-start transition-all ${dashboardMode === "ai" ? "bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-purple-400 hover:from-purple-500/15 hover:to-pink-500/15" : "hover:bg-muted/50"}`}
+            onClick={() => setDashboardMode("ai")}
+          >
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">AI Assistant</span>
+          </Button>
+          <Button
+            variant={dashboardMode === "templates" ? "secondary" : "ghost"}
+            className={`w-full justify-start transition-all ${dashboardMode === "templates" ? "bg-pink-500/10 text-pink-400 hover:bg-pink-500/15" : "hover:bg-muted/50"}`}
+            onClick={() => setDashboardMode("templates")}
+          >
+            <Layout className="h-4 w-4 shrink-0" />
+            <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">Templates</span>
+          </Button>
+          <Button
             variant={dashboardMode === "settings" ? "secondary" : "ghost"}
             className={`w-full justify-start transition-all ${dashboardMode === "settings" ? "bg-primary/10 text-primary hover:bg-primary/15" : "hover:bg-muted/50"}`}
             onClick={() => setDashboardMode("settings")}
@@ -1183,6 +1254,32 @@ export default function DashboardPage() {
         {isLmsEnabled && dashboardMode === "university" && (
           <div className="flex-1 overflow-auto">
             <UniversityIntegration />
+          </div>
+        )}
+
+        {dashboardMode === "study" && (
+          <div className="flex-1 overflow-auto">
+            <StudyPlanner />
+          </div>
+        )}
+
+        {dashboardMode === "achievements" && (
+          <div className="flex-1 overflow-auto">
+            <GamificationPanel />
+          </div>
+        )}
+
+        {dashboardMode === "templates" && (
+          <div className="flex-1 overflow-auto">
+            <CalendarTemplates />
+          </div>
+        )}
+
+        {dashboardMode === "ai" && (
+          <div className="flex-1 overflow-auto p-6">
+            <div className="max-w-5xl mx-auto h-full">
+              <AIAssistantPanel />
+            </div>
           </div>
         )}
       </main>

@@ -62,23 +62,36 @@ export async function POST(req: Request) {
 
     const contentParts: any[] = []
 
-    const systemPrompt = `You are an expert at extracting event and assignment information from documents, screenshots, and text.
-        
-Extract ALL events, assignments, due dates, exams, quizzes, and deadlines from the provided content.
+    const systemPrompt = `You are an expert at extracting event and assignment information from syllabi, course schedules, screenshots, and text.
 
-Important rules:
-1. For each event, extract the title, date, time (if specified), and any description
-2. If you see a course code (like MATH 101, CS 201, etc.), include it in the title as [COURSE_CODE] prefix
-3. If no specific time is given but a date is, assume it's due at 11:59 PM (23:59)
-4. Convert all dates to YYYY-MM-DD format (assume current year 2026 if not specified)
-5. Convert all times to 24-hour HH:MM format
-6. If you see time ranges like "2:30 PM - 4:30 PM", extract both start and end time
-7. Extract descriptions from parentheses or additional context
-8. Be thorough - don't miss any events!
-9. If the item is clearly a school item, set itemType to one of: assignment, quiz, exam.
-   - quiz: quiz, test, midterm quiz
-   - exam: exam, midterm, final, final exam
-   - assignment: assignment, homework, lab, project, essay
+SYLLABUS EXTRACTION EXPERTISE:
+- Recognize common syllabus sections: "Schedule", "Important Dates", "Assignments", "Exams", "Grading"
+- Extract ALL assignments, quizzes, exams, projects, labs, and deadlines
+- Identify course codes from headers (e.g., "CIS*1500", "MATH 101", "CS 201")
+- Parse date formats: "Jan 15", "1/15", "Week 3", "Monday, January 15"
+- Recognize assignment types from keywords and context
+
+CATEGORIZATION RULES (CRITICAL):
+1. **Assignment**: homework, assignment, lab, project, essay, paper, report, problem set, exercise, deliverable, submission
+2. **Quiz**: quiz, test, midterm quiz, weekly quiz, pop quiz, assessment (if short)
+3. **Exam**: exam, midterm, final exam, final, test (if major), examination
+
+EXTRACTION RULES:
+1. Extract title, date, time (if specified), and description for each item
+2. Always extract the course code if visible (MATH 101, CIS*1500, etc.)
+3. If no time specified, assume 11:59 PM (23:59) for assignments/quizzes/exams
+4. Convert dates to YYYY-MM-DD format (assume 2026 if year not specified)
+5. Convert times to 24-hour HH:MM format
+6. For time ranges like "2:30 PM - 4:30 PM", extract both start and end
+7. Include point values, percentages, or weights in description if mentioned
+8. Be thorough - extract EVERYTHING that has a due date or deadline
+9. For weekly recurring items, create separate entries for each occurrence
+
+EXAMPLES:
+- "Assignment 1 (10%) - Due Jan 15" → assignment, title: "Assignment 1", description: "10%", date: 2026-01-15
+- "Midterm Exam - Feb 20, 2:00 PM" → exam, title: "Midterm Exam", date: 2026-02-20, time: 14:00
+- "Lab 3: Data Structures - Submit by Friday" → assignment, title: "Lab 3: Data Structures"
+- "Quiz on Chapters 1-3" → quiz, title: "Quiz on Chapters 1-3"
 
 Current date context: January 2026`
 
