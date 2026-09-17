@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
+    const state = searchParams.get("state")
     const error = searchParams.get("error")
 
     if (error) {
@@ -20,6 +21,13 @@ export async function GET(request: NextRequest) {
 
     if (!code) {
       return NextResponse.redirect(new URL("/dashboard?error=no_code", request.nextUrl.origin))
+    }
+
+    const storedState = request.cookies.get("google_oauth_state")?.value
+    if (!state || !storedState || state !== storedState) {
+      const response = NextResponse.redirect(new URL("/dashboard?error=invalid_state", request.nextUrl.origin))
+      response.cookies.delete("google_oauth_state")
+      return response
     }
 
     const supabase = await createClient()
@@ -58,26 +66,13 @@ export async function GET(request: NextRequest) {
       is_active: true,
     };
 
-    const { data: existingConnection } = await supabase
+    // Use upsert to handle both new connections and reconnections
+    const { error: dbError } = await supabase
       .from("oauth_connections")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("provider", "google")
-      .maybeSingle();
-
-    let dbError;
-    if (existingConnection) {
-      const { error } = await supabase
-        .from("oauth_connections")
-        .update(connectionData)
-        .eq("id", existingConnection.id);
-      dbError = error;
-    } else {
-      const { error } = await supabase
-        .from("oauth_connections")
-        .insert(connectionData);
-      dbError = error;
-    }
+      .upsert(connectionData, {
+        onConflict: "user_id,provider,provider_account_id",
+        ignoreDuplicates: false,
+      });
 
     if (dbError) {
       console.error("Database error saving oauth connection:", dbError)
@@ -104,7 +99,9 @@ export async function GET(request: NextRequest) {
         .eq("id", user.id);
     }
 
-    return NextResponse.redirect(new URL("/dashboard?google_connected=true", request.nextUrl.origin))
+    const response = NextResponse.redirect(new URL("/dashboard?google_connected=true", request.nextUrl.origin))
+    response.cookies.delete("google_oauth_state")
+    return response
   } catch (error) {
     console.error("Fatal OAuth callback error:", error)
     const errorMessage = error instanceof Error ? error.message : "oauth_failed"

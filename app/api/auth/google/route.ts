@@ -28,7 +28,15 @@ export async function GET(request: NextRequest) {
 
     const authUrl = getGoogleAuthUrl(state, request.url)
 
-    return NextResponse.json({ url: authUrl })
+    const response = NextResponse.json({ url: authUrl })
+    response.cookies.set("google_oauth_state", state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/",
+    })
+    return response
   } catch (error) {
     console.error("[v0] Google OAuth init error:", error)
     return NextResponse.json(

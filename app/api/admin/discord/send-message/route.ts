@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
 const DISCORD_API_BASE = "https://discord.com/api/v10"
+const ADMIN_EMAIL = "mohammedcacouni@gmail.com"
 
 export async function POST(req: NextRequest) {
   const steps: string[] = []
 
   try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user || user.email !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
     steps.push("1. Parsing request body")
     const { userId, eventId, adminPassword } = await req.json()
 
@@ -24,8 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     steps.push("2. Fetching user profile from Supabase")
-    const supabase = createAdminClient()
-    const { data: profile, error: profileError } = await supabase
+    const adminSupabase = createAdminClient()
+    const { data: profile, error: profileError } = await adminSupabase
       .from("profiles")
       .select("discord_id, discord_username")
       .eq("id", userId)
@@ -42,7 +53,7 @@ export async function POST(req: NextRequest) {
     steps.push(`3. Found user discord_id: ${profile.discord_id}`)
 
     steps.push("4. Fetching event from Supabase")
-    const { data: event, error: eventError } = await supabase
+    const { data: event, error: eventError } = await adminSupabase
       .from("events")
       .select("title, description, start_time")
       .eq("id", eventId)
